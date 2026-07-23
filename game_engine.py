@@ -376,3 +376,386 @@ async def get_legend_stats() -> dict:
             "places_found": places[0],
             "lore_found": lore[0]
         }
+
+
+# ──────────────────────────────────────────────
+#  Бой
+# ──────────────────────────────────────────────
+
+async def get_creature(creature_id: str) -> dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM creatures WHERE creature_id = $1", creature_id
+        )
+        return dict(row) if row else None
+
+
+async def start_combat(user_id: int, creature_id: str) -> dict:
+    user = await get_or_create_user(user_id)
+    creature = await get_creature(creature_id)
+
+    if not creature:
+        return {"success": False, "message": "Существо не найдено."}
+
+    if not creature["is_alive"]:
+        return {"success": False, "message": "Это существо уже мертво."}
+
+    if creature["location"] != user["current_location"]:
+        return {"success": False, "message": "Этого существа здесь нет."}
+
+    if creature["disposition"] == "friendly":
+        return {"success": False, "message": "Нельзя атаковать дружелюбных существ."}
+
+    return {
+        "success": True,
+        "user": user,
+        "creature": creature,
+        "message": f"⚔️ Ты вступаешь в бой с *{creature['name']}*!"
+    }
+
+
+async def resolve_combat(user_id: int, creature_id: str, action: str = "attack") -> dict:
+    user = await get_or_create_user(user_id)
+    creature = await get_creature(creature_id)
+
+    if not user or not creature:
+        return {"success": False, "message": "Ошибка боя."}
+
+    result_log = {
+        "rounds": [],
+        "user_hp": user["hp"],
+        "creature_hp": creature["hp"],
+        "xp_gained": 0,
+        "loot": [],
+        "outcome": None
+    }
+
+    user_hp = user["hp"]
+    creature_hp = creature["hp"]
+    round_num = 0
+
+    while user_hp > 0 and creature_hp > 0 and round_num < 20:
+        round_num += 1
+        round_data = {"round": round_num}
+
+        # Атака игрока
+        user_dmg = max(1, user["attack"] - creature["defense"] + random.randint(-3, 5))
+        if action == "strong_attack":
+            user_dmg = int(user_dmg * 1.5)
+            action = "attack"
+        elif action == "defend":
+            user_dmg = 0
+            result_log["user_hp"] = min(user["max_hp"], user_hp + 5)
+            user_hp = result_log["user_hp"]
+
+        creature_hp -= user_dmg
+        round_data["user_damage"] = user_dmg
+
+        # Атака существа
+        creature_dmg = max(1, creature["attack"] - user["defense"] + random.randint(-2, 4))
+        user_hp -= creature_dmg
+        round_data["creature_damage"] = creature_dmg
+
+        result_log["rounds"].append(round_data)
+
+    result_log["user_hp"] = max(0, user_hp)
+    result_log["creature_hp"] = max(0, creature_hp)
+
+    # Определяем исход
+    if creature_hp <= 0 and user_hp > 0:
+        result_log["outcome"] = "victory"
+        result_log["xp_gained"] = creature["xp_reward"]
+
+        # Лут
+        loot_table = json.loads(creature["loot_table"]) if isinstance(creature["loot_table"], str) else creature["loot_table"]
+        for loot_item in loot_table:
+            if random.random() < loot_item.get("chance", 0.5):
+                await add_item(user_id, loot_item["item_id"], loot_item.get("qty", 1))
+                result_log["loot"].append(loot_item["item_id"])
+
+        # Обновляем XP и HP игрока
+        new_xp = user["xp"] + creature["xp_reward"]
+        new_level = user["level"]
+        xp_needed = new_level * 100
+        if new_xp >= xp_needed:
+            new_level += 1
+            new_xp -= xp_needed
+
+        await update_user(user_id,
+            xp=new_xp,
+            level=new_level,
+            hp=min(user["max_hp"], user_hp + 20)
+        )
+
+        # Убиваем существо
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE creatures SET is_alive = FALSE WHERE creature_id = $1",
+                creature_id
+            )
+
+        await creature_remember(creature_id, user_id, "killed_by")
+        await _log_action(user_id, "combat_victory", {
+            "creature": creature_id,
+            "xp": creature["xp_reward"],
+            "loot": result_log["loot"]
+        })
+
+        # Энциклопедия
+        await discover_legend(
+            f"creature_{creature_id}", "creature",
+            creature["name"], creature["description"],
+            user_id
+        )
+
+    elif user_hp <= 0:
+        result_log["outcome"] = "defeat"
+        await update_user(user_id, hp=0, is_alive=False)
+        await creature_remember(creature_id, user_id, "killed_player")
+        await _log_action(user_id, "combat_defeat", {"creature": creature_id})
+
+    else:
+        result_log["outcome"] = "draw"
+        await update_user(user_id, hp=max(1, user_hp))
+
+    # Лог боя
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO combat_log (user_id, creature_id, result, damage_dealt, damage_taken, xp_gained, loot_dropped)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+            user_id, creature_id, result_log["outcome"],
+            sum(r.get("user_damage", 0) for r in result_log["rounds"]),
+            sum(r.get("creature_damage", 0) for r in result_log["rounds"]),
+            result_log["xp_gained"],
+            json.dumps(result_log["loot"])
+        )
+
+    return result_log
+
+
+def format_combat_result(result: dict, creature_name: str) -> str:
+    if not result["success"]:
+        return result["message"]
+
+    text = f"⚔️ *Бой с {creature_name}*\n\n"
+
+    for round_data in result.get("rounds", [])[:5]:
+        ud = round_data.get("user_damage", 0)
+        cd = round_data.get("creature_damage", 0)
+        text += f"Раунд {round_data['round']}: Ты нанёс {ud} урона, получил {cd}\n"
+
+    text += f"\n❤️ Твоё HP: {result['user_hp']}\n"
+
+    if result["outcome"] == "victory":
+        text += f"\n🏆 *ПОБЕДА!*\n+{result['xp_gained']} XP"
+        if result["loot"]:
+            text += f"\n📦 Лут: {', '.join(result['loot'])}"
+    elif result["outcome"] == "defeat":
+        text += "\n💀 *ПОРАЖЕНИЕ*\nТы очнулся... где-то раньше."
+    else:
+        text += "\n🤝 *НИЧЬЯ*\nОба отступили."
+
+    return text
+
+
+async def respawn_creature(creature_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE creatures SET is_alive = TRUE WHERE creature_id = $1",
+            creature_id
+        )
+
+
+async def get_combat_history(user_id: int, limit: int = 10) -> list:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT * FROM combat_log WHERE user_id = $1
+               ORDER BY created_at DESC LIMIT $2""",
+            user_id, limit
+        )
+        return [dict(r) for r in rows]
+
+
+# ──────────────────────────────────────────────
+#  Квесты
+# ──────────────────────────────────────────────
+
+async def get_available_quests(user_id: int, location: str = None) -> list:
+    pool = await get_pool()
+    user = await get_or_create_user(user_id)
+    async with pool.acquire() as conn:
+        if location:
+            rows = await conn.fetch(
+                """SELECT q.* FROM quests q
+                   WHERE q.is_active = TRUE AND q.location = $1
+                   AND NOT EXISTS (
+                       SELECT 1 FROM user_quests uq
+                       WHERE uq.user_id = $2 AND uq.quest_id = q.quest_id AND uq.status = 'active'
+                   )""",
+                location, user_id
+            )
+        else:
+            rows = await conn.fetch(
+                """SELECT q.* FROM quests q
+                   WHERE q.is_active = TRUE
+                   AND NOT EXISTS (
+                       SELECT 1 FROM user_quests uq
+                       WHERE uq.user_id = $1 AND uq.quest_id = q.quest_id AND uq.status = 'active'
+                   )""",
+                user_id
+            )
+        return [dict(r) for r in rows]
+
+
+async def accept_quest(user_id: int, quest_id: str) -> dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        quest = await conn.fetchrow(
+            "SELECT * FROM quests WHERE quest_id = $1 AND is_active = TRUE",
+            quest_id
+        )
+        if not quest:
+            return {"success": False, "message": "Квест не найден."}
+
+        existing = await conn.fetchrow(
+            """SELECT * FROM user_quests
+               WHERE user_id = $1 AND quest_id = $2 AND status = 'active'""",
+            user_id, quest_id
+        )
+        if existing:
+            return {"success": False, "message": "Ты уже выполняешь этот квест."}
+
+        completed = await conn.fetchrow(
+            """SELECT * FROM user_quests
+               WHERE user_id = $1 AND quest_id = $2 AND status = 'completed'""",
+            user_id, quest_id
+        )
+        if completed and not quest["is_repeating"]:
+            return {"success": False, "message": "Ты уже выполнил этот квест."}
+
+        objectives = json.loads(quest["objectives"]) if isinstance(quest["objectives"], str) else quest["objectives"]
+        progress = {}
+        for obj in objectives:
+            progress[obj["id"]] = {"current": 0, "target": obj["target"]}
+
+        await conn.execute(
+            """INSERT INTO user_quests (user_id, quest_id, progress)
+               VALUES ($1, $2, $3)""",
+            user_id, quest_id, json.dumps(progress)
+        )
+
+        await _log_action(user_id, "quest_accept", {"quest_id": quest_id, "name": quest["name"]})
+
+        return {
+            "success": True,
+            "quest": dict(quest),
+            "message": f"📜 Квест принят: *{quest['name']}*"
+        }
+
+
+async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, amount: int = 1) -> dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        uq = await conn.fetchrow(
+            """SELECT uq.*, q.objectives, q.rewards, q.name
+               FROM user_quests uq
+               JOIN quests q ON uq.quest_id = q.quest_id
+               WHERE uq.user_id = $1 AND uq.quest_id = $2 AND uq.status = 'active'""",
+            user_id, quest_id
+        )
+        if not uq:
+            return {"success": False}
+
+        progress = json.loads(uq["progress"])
+        if objective_id not in progress:
+            return {"success": False}
+
+        progress[objective_id]["current"] = min(
+            progress[objective_id]["current"] + amount,
+            progress[objective_id]["target"]
+        )
+
+        all_done = all(
+            p["current"] >= p["target"]
+            for p in progress.values()
+        )
+
+        if all_done:
+            rewards = json.loads(uq["rewards"]) if isinstance(uq["rewards"], str) else uq["rewards"]
+
+            if "xp" in rewards:
+                user = await get_or_create_user(user_id)
+                new_xp = user["xp"] + rewards["xp"]
+                new_level = user["level"]
+                if new_xp >= new_level * 100:
+                    new_level += 1
+                    new_xp -= new_level * 100
+                await update_user(user_id, xp=new_xp, level=new_level)
+
+            if "memories" in rewards:
+                user = await get_or_create_user(user_id)
+                await update_user(user_id, memories=user["memories"] + rewards["memories"])
+
+            if "karma" in rewards:
+                user = await get_or_create_user(user_id)
+                await update_user(user_id, karma=user["karma"] + rewards["karma"])
+
+            if "items" in rewards:
+                for item in rewards["items"]:
+                    await add_item(user_id, item["id"], item.get("qty", 1))
+
+            await conn.execute(
+                """UPDATE user_quests SET status = 'completed', progress = $1, completed_at = NOW()
+                   WHERE user_id = $2 AND quest_id = $3""",
+                json.dumps(progress), user_id, quest_id
+            )
+
+            await _log_action(user_id, "quest_complete", {"quest_id": quest_id, "name": uq["name"]})
+
+            return {
+                "success": True,
+                "completed": True,
+                "rewards": rewards,
+                "message": f"🏆 Квест выполнен: *{uq['name']}*!"
+            }
+        else:
+            await conn.execute(
+                "UPDATE user_quests SET progress = $1 WHERE user_id = $2 AND quest_id = $3",
+                json.dumps(progress), user_id, quest_id
+            )
+            return {"success": True, "completed": False}
+
+
+async def get_user_quests(user_id: int) -> list:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT uq.*, q.name, q.description, q.objectives, q.rewards
+               FROM user_quests uq
+               JOIN quests q ON uq.quest_id = q.quest_id
+               WHERE uq.user_id = $1
+               ORDER BY uq.started_at DESC""",
+            user_id
+        )
+        return [dict(r) for r in rows]
+
+
+async def create_quest(quest_id: str, name: str, description: str, giver: str,
+                       location: str, objectives: list, rewards: dict,
+                       is_active: bool = True, is_repeating: bool = False):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO quests (quest_id, name, description, giver, location, objectives, rewards, is_active, is_repeating)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (quest_id) DO UPDATE SET
+                   name = $2, description = $3, objectives = $6, rewards = $7""",
+            quest_id, name, description, giver, location,
+            json.dumps(objectives), json.dumps(rewards),
+            is_active, is_repeating
+        )

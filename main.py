@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from config import BOT_TOKEN
 from database.db import init_db, close_db
-from handlers import game, whisper
+from handlers import game, whisper, combat, quests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("MIST")
@@ -24,6 +24,8 @@ async def main():
 
     dp.include_router(game.router)
     dp.include_router(whisper.router)
+    dp.include_router(combat.router)
+    dp.include_router(quests.router)
 
     logger.info("MIST запущен. Туман поднимается...")
     try:
