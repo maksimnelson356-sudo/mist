@@ -1,5 +1,5 @@
 import json
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 import game_engine as ge
