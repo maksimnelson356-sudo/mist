@@ -1,25 +1,28 @@
-import asyncpg
-from config import DB_DSN
+import aiosqlite
+from config import DB_PATH
 
-_pool: asyncpg.Pool = None
+_db: aiosqlite.Connection = None
 
 
-async def get_pool() -> asyncpg.Pool:
-    global _pool
-    if _pool is None:
-        _pool = await asyncpg.create_pool(DB_DSN, min_size=2, max_size=10)
-    return _pool
+async def get_db() -> aiosqlite.Connection:
+    global _db
+    if _db is None:
+        _db = await aiosqlite.connect(DB_PATH)
+        _db.row_factory = aiosqlite.Row
+        await _db.execute("PRAGMA journal_mode=WAL")
+        await _db.execute("PRAGMA foreign_keys=ON")
+    return _db
 
 
 async def init_db():
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        with open("schema.sql", "r", encoding="utf-8") as f:
-            await conn.execute(f.read())
+    db = await get_db()
+    with open("schema.sql", "r", encoding="utf-8") as f:
+        await db.executescript(f.read())
+    await db.commit()
 
 
 async def close_db():
-    global _pool
-    if _pool:
-        await _pool.close()
-        _pool = None
+    global _db
+    if _db:
+        await _db.close()
+        _db = None

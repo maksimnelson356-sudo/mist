@@ -85,13 +85,13 @@ async def cmd_look(message: Message):
 @router.message(Command("locations"))
 async def cmd_locations(message: Message):
     user = await ge.get_or_create_user(message.from_user.id)
-    pool = await ge.get_pool()
-    async with pool.acquire() as conn:
-        loc = await conn.fetchrow(
-            "SELECT connections FROM locations WHERE location_id = $1",
-            user["current_location"]
-        )
-        connections = json.loads(loc["connections"]) if loc and isinstance(loc["connections"], str) else (loc["connections"] if loc else [])
+    db = await ge.get_db()
+    cursor = await db.execute(
+        "SELECT connections FROM locations WHERE location_id = ?",
+        (user["current_location"],)
+    )
+    loc = await cursor.fetchone()
+    connections = json.loads(loc["connections"]) if loc and isinstance(loc["connections"], str) else (loc["connections"] if loc else [])
 
     text = "🗺 *Доступные направления:*\n\n"
     for loc_id in connections:
