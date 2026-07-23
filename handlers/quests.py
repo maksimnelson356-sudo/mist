@@ -78,5 +78,27 @@ async def cb_accept(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
 
-    await callback.message.edit_text(result["message"], reply_markup=kb)
+    if result["success"] and result.get("completed") and result.get("rewards"):
+        rewards = result["rewards"]
+        text = result["message"] + "\n\n<b>Награды:</b>\n"
+        if "xp" in rewards:
+            text += f"  ⭐ {rewards['xp']} XP\n"
+        if "gold" in rewards:
+            text += f"  🪙 {rewards['gold']} золота\n"
+        if "memories" in rewards:
+            text += f"  🎒 {rewards['memories']} воспоминаний\n"
+        if "karma" in rewards:
+            text += f"  ⚖️ {rewards['karma']} карма\n"
+        if "items" in rewards:
+            for item in rewards["items"]:
+                text += f"  🏺 {item['id']} x{item.get('qty', 1)}\n"
+    else:
+        text = result["message"]
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
+
+    await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()

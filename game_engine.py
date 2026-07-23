@@ -102,6 +102,9 @@ async def add_item(user_id: int, item_id: str, quantity: int = 1, is_magic: bool
         )
     await db.commit()
     await _log_action(user_id, "item_gain", {"item_id": item_id, "qty": quantity})
+    t = await get_item_template(item_id)
+    if t:
+        await discover_legend(f"item_{item_id}", "item", t["name"], t["description"], user_id)
 
 
 async def remove_item(user_id: int, item_id: str, quantity: int = 1) -> bool:
@@ -634,6 +637,7 @@ async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, 
         await db.commit()
 
         await _log_action(user_id, "quest_complete", {"quest_id": quest_id, "name": uq["name"]})
+        await discover_legend(f"quest_{quest_id}", "lore", uq["name"], uq.get("description", ""), user_id)
 
         return {"success": True, "completed": True, "rewards": rewards, "message": f"🏆 Квест выполнен: <b>{uq['name']}</b>!"}
     else:
@@ -708,6 +712,7 @@ async def pick_up_item(user_id: int, location_id: str, item_id: str) -> dict:
 
     t = await get_item_template(item_id)
     name = t["name"] if t else item_id
+    await discover_legend(f"item_{item_id}", "item", name, t["description"] if t else item_id, user_id)
     return {"success": True, "message": f"🤲 Подобрал: {name} x{item['quantity']}"}
 
 
@@ -745,9 +750,11 @@ async def use_item(user_id: int, item_id: str) -> dict:
 
     if "heal" in effect:
         heal = effect["heal"]
-        new_hp = min(user["max_hp"], user["hp"] + heal)
+        old_hp = user["hp"]
+        new_hp = min(user["max_hp"], old_hp + heal)
+        actual_heal = new_hp - old_hp
         await update_user(user_id, hp=new_hp)
-        messages.append(f"💚 Восстановлено {new_hp - user['hp']} HP")
+        messages.append(f"💚 Восстановлено {actual_heal} HP")
 
     if "damage" in effect:
         messages.append(f"⚔️ Осколок наносит {effect['damage']} урона окружающим. Воздух дрожит.")
@@ -763,7 +770,9 @@ async def use_item(user_id: int, item_id: str) -> dict:
         messages.append(f"⭐ +{effect['xp']} XP")
 
     if "level_up" in effect:
-        await update_user(user_id, level=user["level"] + 1, max_hp=user["max_hp"] + 20, hp=user["max_hp"] + 20)
+        new_level = user["level"] + 1
+        new_max_hp = user["max_hp"] + 20
+        await update_user(user_id, level=new_level, max_hp=new_max_hp, hp=new_max_hp)
         messages.append("⭐ Уровень Increased!")
 
     if "light" in effect:
@@ -862,6 +871,7 @@ async def talk_to_creature(user_id: int, creature_id: str) -> dict:
             text = f"🗣 <b>{creature['name']}</b> молчит. Но его взгляд говорит: «Я знаю то, чего не знаешь ты.»"
 
         await _log_action(user_id, "talk", {"creature": creature_id})
+        await discover_legend(f"creature_{creature_id}", "creature", creature["name"], creature["description"], user_id)
         return {"success": True, "message": text}
     elif len(hostile_memories) > 0:
         return {"success": False, "message": f"🗣 {creature['name']} рычит. Он помнит, что ты ему сделал.\n\n<i>Говорить бесполезно.</i>"}
@@ -1124,6 +1134,7 @@ async def pvp_battle(user_id: int, target_id: int) -> dict:
             "target": target_id, "xp": result["xp_gained"],
             "gold": result["gold_gained"], "rating_change": rating_change
         })
+        await discover_legend(f"pvp_{target_id}", "lore", f"PvP: {target['display_name']}", f"Победил {target['display_name']} в арене", user_id)
 
     elif user_hp <= 0:
         result["outcome"] = "defeat"
