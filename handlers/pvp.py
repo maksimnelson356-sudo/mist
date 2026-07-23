@@ -18,7 +18,7 @@ async def cb_pvp_menu(callback: CallbackQuery):
         f"📈 Винрейт: {stats['winrate']}%\n\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']}\n"
         f"🗡 Атака: {user['attack']} | 🛡 Защита: {user['defense']}\n\n"
-        "<i>Противники подбираются по рейтингу.</i>"
+        "🌫 <i>Противники подбираются по рейтингу.</i>"
     )
 
     buttons = [

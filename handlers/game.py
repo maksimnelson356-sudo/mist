@@ -40,10 +40,12 @@ def main_menu_kb():
         [InlineKeyboardButton(text="⚒️ Крафт", callback_data="crafting_menu")],
         [InlineKeyboardButton(text="🤝 Трейдинг", callback_data="trade_menu")],
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
+        [InlineKeyboardButton(text="🛡️ Снаряжение", callback_data="equipment_menu")],
         [InlineKeyboardButton(text="👤 Статус", callback_data="status")],
         [InlineKeyboardButton(text="🔮 Шёпот тумана", callback_data="whisper")],
         [InlineKeyboardButton(text="🏆 Энциклопедия", callback_data="legends")],
         [InlineKeyboardButton(text="⚔️ PvP Арена", callback_data="pvp_menu")],
+        [InlineKeyboardButton(text="🤖 Команды", callback_data="commands")],
     ])
 
 

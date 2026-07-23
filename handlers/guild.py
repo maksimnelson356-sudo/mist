@@ -28,7 +28,7 @@ async def cb_guild_menu(callback: CallbackQuery):
     if not guild:
         text = (
             "🏰 <b>Гильдии</b>\n\n"
-            "Ты не состояишь ни в одной гильдии.\n\n"
+            "Ты не состоишь ни в одной гильдии.\n\n"
             "<i>Создай свою за 50 🪙 или вступи в чужую.</i>"
         )
         buttons = [
@@ -47,8 +47,22 @@ async def cb_guild_menu(callback: CallbackQuery):
             member_count = row[0]
 
         role_icon = {"leader": "👑", "officer": "⭐", "member": "👤"}.get(guild["role"], "👤")
+        bonus_lines = []
+        if guild["level"] >= 5:
+            bonus_lines.append("✨ VIP-членство — скины мира")
+        if guild["level"] >= 10:
+            bonus_lines.append("⚔️ Военный бонус — +2 Атаки в PvP")
+        if guild["level"] >= 20:
+            bonus_lines.append("🪙 Казначей — +5% выпа стака")
+        if guild["level"] >= 50:
+            bonus_lines.append("🏆 Элитный клан — награды чемпионов")
+
+        bonus_text = ""
+        if bonus_lines:
+            bonus_text = f"\nБонусы гильдии: {', '.join(bonus_lines)}"
+
         text = (
-            f"🏰 <b>{guild['name']}</b>\n\n"
+            f"🏰 <b>{guild['name']}</b> [{guild['level']}]\n\n"
             f"{guild.get('description', '')}\n"
             f"📜 <i>{guild.get('motto', '')}</i>\n\n"
             f"👑 Лидер: #{guild['leader_id']}\n"
@@ -56,6 +70,7 @@ async def cb_guild_menu(callback: CallbackQuery):
             f"⭐ Уровень: {guild['level']} (XP: {guild['xp']})\n"
             f"🪙 Казна: {guild['gold']} 🪙\n\n"
             f"Ты: {role_icon} {guild['role']} | Вклад: {guild['contribution']} 🪙"
+            f"{bonus_text}"
         )
         buttons = [
             [InlineKeyboardButton(text="👥 Участники", callback_data="guild_members")],

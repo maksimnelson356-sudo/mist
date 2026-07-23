@@ -425,11 +425,27 @@ async def start_combat(user_id: int, creature_id: str) -> dict:
     if creature["disposition"] == "friendly":
         return {"success": False, "message": "Нельзя атаковать дружелюбных существ."}
 
+    equip_bonus = await get_equipment_bonuses(user_id)
+    effective_attack = user["attack"] + equip_bonus["attack"]
+    effective_defense = user["defense"] + equip_bonus["defense"]
+
+    equip_info = ""
+    if equip_bonus["attack"] > 0 or equip_bonus["defense"] > 0:
+        parts = []
+        if equip_bonus["attack"] > 0:
+            parts.append(f"⚔️+{equip_bonus['attack']}")
+        if equip_bonus["defense"] > 0:
+            parts.append(f"🛡️+{equip_bonus['defense']}")
+        equip_info = f"\n📦 Снаряжение: {', '.join(parts)}"
+
     return {
         "success": True,
         "user": user,
         "creature": creature,
-        "message": f"⚔️ Ты вступаешь в бой с *{creature['name']}*!"
+        "effective_attack": effective_attack,
+        "effective_defense": effective_defense,
+        "equipment": equip_bonus,
+        "message": f"⚔️ Ты вступаешь в бой с *{creature['name']}*!{equip_info}\n⚔️ Атака: {effective_attack} | 🛡️ Защита: {effective_defense}"
     }
 
 
@@ -440,13 +456,25 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
     if not user or not creature:
         return {"success": False, "message": "Ошибка боя."}
 
+    equip_bonus = await get_equipment_bonuses(user_id)
+    effective_attack = user["attack"] + equip_bonus["attack"]
+    effective_defense = user["defense"] + equip_bonus["defense"]
+
+    creature_spawn = {}
+    if creature.get("spawn_data"):
+        creature_spawn = json.loads(creature["spawn_data"]) if isinstance(creature["spawn_data"], str) else creature["spawn_data"]
+    is_boss = creature_spawn.get("is_boss", False)
+    boss_abilities = creature_spawn.get("abilities", [])
+
     result_log = {
         "rounds": [],
         "user_hp": user["hp"],
         "creature_hp": creature["hp"],
         "xp_gained": 0,
         "loot": [],
-        "outcome": None
+        "outcome": None,
+        "equipment": equip_bonus,
+        "effects_applied": []
     }
 
     user_hp = user["hp"]
@@ -457,20 +485,46 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
         round_num += 1
         round_data = {"round": round_num}
 
-        user_dmg = max(1, user["attack"] - creature["defense"] + random.randint(-3, 5))
-        if action == "strong_attack":
-            user_dmg = int(user_dmg * 1.5)
-            action = "attack"
-        elif action == "defend":
-            user_dmg = 0
-            user_hp = min(user["max_hp"], user_hp + 5)
+        effect_result = await tick_effects(user_id)
+        user_hp -= effect_result["damage"]
+        user_hp += effect_result["heal"]
+        user_hp = min(user["max_hp"], user_hp)
+        effective_attack += effect_result["attack_mod"]
+        effective_defense += effect_result["defense_mod"]
+        effective_attack = max(1, effective_attack)
+        effective_defense = max(0, effective_defense)
+        round_data["effect_damage"] = effect_result["damage"]
+        round_data["effect_heal"] = effect_result["heal"]
+        round_data["effect_log"] = effect_result["log"]
 
-        creature_hp -= user_dmg
-        round_data["user_damage"] = user_dmg
+        if effect_result["skip_turn"]:
+            round_data["user_damage"] = 0
+            round_data["user_skipped"] = True
+        else:
+            user_dmg = max(1, effective_attack - creature["defense"] + random.randint(-3, 5))
+            if action == "strong_attack":
+                user_dmg = int(user_dmg * 1.5)
+                action = "attack"
+            elif action == "defend":
+                user_dmg = 0
+                user_hp = min(user["max_hp"], user_hp + 5)
 
-        creature_dmg = max(1, creature["attack"] - user["defense"] + random.randint(-2, 4))
+            creature_hp -= user_dmg
+            round_data["user_damage"] = user_dmg
+
+        creature_dmg = max(1, creature["attack"] - effective_defense + random.randint(-2, 4))
+        creature_dmg = max(0, creature_dmg - effect_result.get("absorbed", 0))
         user_hp -= creature_dmg
         round_data["creature_damage"] = creature_dmg
+
+        if is_boss and boss_abilities and random.random() < 0.3:
+            effect_pool = [a for a in boss_abilities if a in STATUS_EFFECTS]
+            if effect_pool:
+                chosen = random.choice(effect_pool)
+                await apply_status_effect(user_id, chosen, potency=1, duration=2, source="creature")
+                result_log["effects_applied"].append(chosen)
+                effect_info = STATUS_EFFECTS.get(chosen, {})
+                round_data["boss_effect"] = f"{effect_info.get('icon', '?')} {effect_info.get('name', chosen)}"
 
         result_log["rounds"].append(round_data)
 
@@ -516,16 +570,19 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
         })
 
         await discover_legend(f"creature_{creature_id}", "creature", creature["name"], creature["description"], user_id)
+        await clear_all_effects(user_id)
 
     elif user_hp <= 0:
         result_log["outcome"] = "defeat"
         await update_user(user_id, hp=0, is_alive=0)
         await creature_remember(creature_id, user_id, "killed_player")
         await _log_action(user_id, "combat_defeat", {"creature": creature_id})
+        await clear_all_effects(user_id)
 
     else:
         result_log["outcome"] = "draw"
         await update_user(user_id, hp=max(1, user_hp))
+        await clear_all_effects(user_id)
 
     await db.execute(
         """INSERT INTO combat_log (user_id, creature_id, result, damage_dealt, damage_taken, xp_gained, loot_dropped)
@@ -1696,3 +1753,512 @@ async def get_pending_trades(user_id: int) -> list:
     )
     rows = await cursor.fetchall()
     return [dict(r) for r in rows]
+
+
+# ═══════════════════════════════════════════════
+#  СТАТУС-ЭФФЕКТЫ
+# ═══════════════════════════════════════════════
+
+STATUS_EFFECTS = {
+    "poison": {"name": "Яд", "icon": "🟢", "desc": "Теряешь HP каждый раунд", "damage_per_round": 3},
+    "bleed": {"name": "Кровотечение", "icon": "🩸", "desc": "Теряешь HP каждый раунд", "damage_per_round": 4},
+    "burn": {"name": "Ожог", "icon": "🔥", "desc": "Теряешь HP каждый раунд", "damage_per_round": 5},
+    "stun": {"name": "Оглушение", "icon": "💫", "desc": "Пропускаешь следующий ход", "skip_chance": 1.0},
+    "frost": {"name": "Мороз", "icon": "❄️", "desc": "Снижена атака", "attack_reduction": 3},
+    "weakness": {"name": "Слабость", "icon": "💀", "desc": "Снижена защита", "defense_reduction": 3},
+    "regen": {"name": "Регенерация", "icon": "💚", "desc": "Восстанавливаешь HP каждый раунд", "heal_per_round": 5},
+    "shield": {"name": "Щит", "icon": "🛡️", "desc": "Блокирует часть урона", "damage_absorb": 5},
+    "haste": {"name": "Скорость", "icon": "⚡", "desc": "Бонус к атаке", "attack_bonus": 4},
+}
+
+
+async def apply_status_effect(user_id: int, effect_type: str, potency: int = 1, duration: int = 3, source: str = "combat"):
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO user_status_effects (user_id, effect_type, potency, duration, source)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(user_id, effect_type) DO UPDATE SET potency = ?, duration = ?""",
+        (user_id, effect_type, potency, duration, source, potency, duration)
+    )
+    await db.commit()
+
+
+async def get_active_effects(user_id: int) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM user_status_effects WHERE user_id = ? AND duration > 0",
+        (user_id,)
+    )
+    return [dict(r) for r in await cursor.fetchall()]
+
+
+async def has_effect(user_id: int, effect_type: str) -> bool:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT 1 FROM user_status_effects WHERE user_id = ? AND effect_type = ? AND duration > 0",
+        (user_id, effect_type)
+    )
+    return (await cursor.fetchone()) is not None
+
+
+async def tick_effects(user_id: int) -> dict:
+    db = await get_db()
+    effects = await get_active_effects(user_id)
+    total_damage = 0
+    total_heal = 0
+    skip_turn = False
+    attack_mod = 0
+    defense_mod = 0
+    absorbed = 0
+    tick_log = []
+
+    for e in effects:
+        info = STATUS_EFFECTS.get(e["effect_type"], {})
+        if "damage_per_round" in info:
+            dmg = info["damage_per_round"] * e["potency"]
+            total_damage += dmg
+            tick_log.append(f"{info['icon']} {info['name']}: -{dmg} HP")
+        if "heal_per_round" in info:
+            heal = info["heal_per_round"] * e["potency"]
+            total_heal += heal
+            tick_log.append(f"{info['icon']} {info['name']}: +{heal} HP")
+        if info.get("skip_chance", 0) > 0 and random.random() < info["skip_chance"]:
+            skip_turn = True
+            tick_log.append(f"{info['icon']} {info['name']}: пропуск хода!")
+        if "attack_reduction" in info:
+            attack_mod -= info["attack_reduction"] * e["potency"]
+        if "attack_bonus" in info:
+            attack_mod += info["attack_bonus"] * e["potency"]
+        if "defense_reduction" in info:
+            defense_mod -= info["defense_reduction"] * e["potency"]
+        if "damage_absorb" in info:
+            absorbed += info["damage_absorb"] * e["potency"]
+
+        new_dur = e["duration"] - 1
+        if new_dur <= 0:
+            await db.execute(
+                "DELETE FROM user_status_effects WHERE user_id = ? AND effect_type = ?",
+                (user_id, e["effect_type"])
+            )
+            tick_log.append(f"💨 {info['name']} закончился")
+        else:
+            await db.execute(
+                "UPDATE user_status_effects SET duration = ? WHERE user_id = ? AND effect_type = ?",
+                (new_dur, user_id, e["effect_type"])
+            )
+
+    await db.commit()
+    return {
+        "damage": total_damage,
+        "heal": total_heal,
+        "skip_turn": skip_turn,
+        "attack_mod": attack_mod,
+        "defense_mod": defense_mod,
+        "absorbed": absorbed,
+        "log": tick_log
+    }
+
+
+async def clear_all_effects(user_id: int):
+    db = await get_db()
+    await db.execute("DELETE FROM user_status_effects WHERE user_id = ?", (user_id,))
+    await db.commit()
+
+
+# ═══════════════════════════════════════════════
+#  СНАРЯЖЕНИЕ
+# ═══════════════════════════════════════════════
+
+EQUIPMENT_SLOTS = {"weapon": "⚔️ Оружие", "armor": "🛡️ Броня", "accessory": "💍 Аксессуар"}
+
+EQUIPMENT_STATS = {
+    "wolf_fang_dagger": {"slot": "weapon", "attack": 3, "defense": 0, "max_hp": 0},
+    "crystal_blade": {"slot": "weapon", "attack": 8, "defense": 0, "max_hp": 0},
+    "grove_amulet": {"slot": "accessory", "attack": 0, "defense": 2, "max_hp": 15},
+    "obsidian_armour": {"slot": "armor", "attack": 0, "defense": 7, "max_hp": 0},
+    "mine_pickaxe": {"slot": "weapon", "attack": 4, "defense": 1, "max_hp": 0},
+    "enchanted_compass": {"slot": "accessory", "attack": 1, "defense": 1, "max_hp": 10},
+    "soul_bottle": {"slot": "accessory", "attack": 2, "defense": 0, "max_hp": 20},
+    "shadow_cloak": {"slot": "armor", "attack": 0, "defense": 5, "max_hp": 10},
+    "bone_sword": {"slot": "weapon", "attack": 5, "defense": 0, "max_hp": 0},
+    "witch_brew": {"slot": "accessory", "attack": 0, "defense": 0, "max_hp": 30},
+    "frost_ring": {"slot": "accessory", "attack": 2, "defense": 2, "max_hp": 0},
+    "iron_shield": {"slot": "armor", "attack": 0, "defense": 4, "max_hp": 5},
+}
+
+
+async def equip_item(user_id: int, item_id: str) -> dict:
+    info = EQUIPMENT_STATS.get(item_id)
+    if not info:
+        return {"success": False, "message": "Этот предмет нельзя экипировать."}
+
+    slot = info["slot"]
+    inv_item = await db_fetchone(
+        "SELECT * FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
+        (user_id, item_id)
+    )
+    if not inv_item:
+        return {"success": False, "message": "У тебя нет этого предмета."}
+
+    db = await get_db()
+    existing = await db_fetchone(
+        "SELECT * FROM user_equipment WHERE user_id = ? AND slot = ?",
+        (user_id, slot)
+    )
+    if existing:
+        await unequip_item(user_id, slot)
+
+    await db.execute(
+        "INSERT INTO user_equipment (user_id, slot, item_id) VALUES (?, ?, ?)",
+        (user_id, slot, item_id)
+    )
+    await remove_item(user_id, item_id, 1)
+    await db.commit()
+
+    slot_name = EQUIPMENT_SLOTS.get(slot, slot)
+    item_tmpl = await get_item_template(item_id)
+    item_name = item_tmpl["name"] if item_tmpl else item_id
+    return {"success": True, "message": f"⚔️ Экипировано: {slot_name} → {item_name}"}
+
+
+async def unequip_item(user_id: int, slot: str) -> dict:
+    db = await get_db()
+    existing = await db_fetchone(
+        "SELECT * FROM user_equipment WHERE user_id = ? AND slot = ?",
+        (user_id, slot)
+    )
+    if not existing:
+        return {"success": False, "message": "В этом слоте ничего нет."}
+
+    await add_item(user_id, existing["item_id"], 1)
+    await db.execute("DELETE FROM user_equipment WHERE user_id = ? AND slot = ?", (user_id, slot))
+    await db.commit()
+    return {"success": True, "message": f"Снято из слота {EQUIPMENT_SLOTS.get(slot, slot)}."}
+
+
+async def get_equipment(user_id: int) -> dict:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM user_equipment WHERE user_id = ?", (user_id,))
+    rows = await cursor.fetchall()
+    result = {}
+    for r in rows:
+        row = dict(r)
+        tmpl = await get_item_template(row["item_id"])
+        row["name"] = tmpl["name"] if tmpl else row["item_id"]
+        row["stats"] = EQUIPMENT_STATS.get(row["item_id"], {})
+        result[row["slot"]] = row
+    return result
+
+
+async def get_equipment_bonuses(user_id: int) -> dict:
+    equip = await get_equipment(user_id)
+    bonuses = {"attack": 0, "defense": 0, "max_hp": 0}
+    for slot, item in equip.items():
+        stats = item.get("stats", {})
+        bonuses["attack"] += stats.get("attack", 0)
+        bonuses["defense"] += stats.get("defense", 0)
+        bonuses["max_hp"] += stats.get("max_hp", 0)
+    return bonuses
+
+
+# ═══════════════════════════════════════════════
+#  ДОСТИЖЕНИЯ
+# ═══════════════════════════════════════════════
+
+ACHIEVEMENT_DEFS = [
+    {"achievement_id": "first_blood", "name": "Первая кровь", "description": "Убей первое существо", "icon": "🩸", "category": "combat", "requirement": json.dumps({"type": "kill_count", "target": 1}), "reward_xp": 25},
+    {"achievement_id": "monster_hunter", "name": "Охотник", "description": "Убей 10 существ", "icon": "⚔️", "category": "combat", "requirement": json.dumps({"type": "kill_count", "target": 10}), "reward_xp": 100, "reward_gold": 50},
+    {"achievement_id": "slayer", "name": "Бог убийств", "description": "Убей 50 существ", "icon": "💀", "category": "combat", "requirement": json.dumps({"type": "kill_count", "target": 50}), "reward_xp": 500, "reward_gold": 200},
+    {"achievement_id": "explorer_5", "name": "Исследователь", "description": "Открой 5 локаций", "icon": "🗺️", "category": "explore", "requirement": json.dumps({"type": "locations_discovered", "target": 5}), "reward_xp": 50},
+    {"achievement_id": "explorer_15", "name": "Странник", "description": "Открой 15 локаций", "icon": "🌍", "category": "explore", "requirement": json.dumps({"type": "locations_discovered", "target": 15}), "reward_xp": 200, "reward_gold": 100},
+    {"achievement_id": "explorer_all", "name": "Повелитель тумана", "description": "Открой все локации", "icon": "👁️", "category": "explore", "requirement": json.dumps({"type": "locations_discovered", "target": 28}), "reward_xp": 1000, "reward_gold": 500, "is_secret": 1},
+    {"achievement_id": "quest_5", "name": "Исполнитель", "description": "Выполни 5 квестов", "icon": "📜", "category": "quests", "requirement": json.dumps({"type": "quests_completed", "target": 5}), "reward_xp": 75},
+    {"achievement_id": "quest_all", "name": "Хранитель слов", "description": "Выполни все квесты", "icon": "📖", "category": "quests", "requirement": json.dumps({"type": "quests_completed", "target": 28}), "reward_xp": 2000, "reward_gold": 1000, "is_secret": 1},
+    {"achievement_id": "level_5", "name": "Новичок", "description": "Достигни 5 уровня", "icon": "⭐", "category": "progress", "requirement": json.dumps({"type": "level", "target": 5}), "reward_xp": 50},
+    {"achievement_id": "level_10", "name": "Воин", "description": "Достигни 10 уровня", "icon": "🌟", "category": "progress", "requirement": json.dumps({"type": "level", "target": 10}), "reward_xp": 200, "reward_gold": 100},
+    {"achievement_id": "level_20", "name": "Легенда", "description": "Достигни 20 уровня", "icon": "💫", "category": "progress", "requirement": json.dumps({"type": "level", "target": 20}), "reward_xp": 500, "reward_gold": 300},
+    {"achievement_id": "gold_500", "name": "Скупщик", "description": "Накопи 500 золота", "icon": "🪙", "category": "wealth", "requirement": json.dumps({"type": "gold", "target": 500}), "reward_xp": 50},
+    {"achievement_id": "gold_5000", "name": "Торговец", "description": "Накопи 5000 золота", "icon": "💰", "category": "wealth", "requirement": json.dumps({"type": "gold", "target": 5000}), "reward_xp": 300, "reward_gold": 500},
+    {"achievement_id": "craft_3", "name": "Ремесленник", "description": "Скрафти 3 предмета", "icon": "⚒️", "category": "craft", "requirement": json.dumps({"type": "craft_count", "target": 3}), "reward_xp": 50},
+    {"achievement_id": "boss_killer", "name": "Убийца боссов", "description": "Убей босса", "icon": "👑", "category": "combat", "requirement": json.dumps({"type": "boss_kills", "target": 1}), "reward_xp": 200, "reward_gold": 100},
+    {"achievement_id": "pvp_5", "name": "Гладиатор", "description": "Выиграй 5 PvP боёв", "icon": "🏟️", "category": "pvp", "requirement": json.dumps({"type": "pvp_wins", "target": 5}), "reward_xp": 100, "reward_gold": 50},
+    {"achievement_id": "first_day", "name": "Первый день", "description": "Проведи 1 день в MIST", "icon": "🌅", "category": "progress", "requirement": json.dumps({"type": "days_in_mist", "target": 1}), "reward_xp": 10},
+    {"achievement_id": "week_survivor", "name": "Выживший", "description": "Проведи 7 дней в MIST", "icon": "🗓️", "category": "progress", "requirement": json.dumps({"type": "days_in_mist", "target": 7}), "reward_xp": 150, "reward_gold": 75},
+    {"achievement_id": "equipped", "name": "Экипирован", "description": "Экипируй предмет", "icon": "🎒", "category": "general", "requirement": json.dumps({"type": "equipped", "target": 1}), "reward_xp": 10},
+    {"achievement_id": "social_butterfly", "name": "Душа компании", "description": "Вступи в гильдию", "icon": "🏰", "category": "social", "requirement": json.dumps({"type": "guild_member", "target": 1}), "reward_xp": 25},
+]
+
+
+async def check_achievements(user_id: int) -> list:
+    newly_unlocked = []
+    user = await get_or_create_user(user_id)
+
+    db = await get_db()
+    cursor = await db.execute("SELECT achievement_id FROM user_achievements WHERE user_id = ?", (user_id,))
+    unlocked_ids = {r["achievement_id"] for r in await cursor.fetchall()}
+
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM combat_log WHERE user_id = ? AND result = 'victory'", (user_id,))
+    kill_count = (await cursor.fetchone())["cnt"]
+
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM locations WHERE discovered = 1 AND discovered_by = ?", (user_id,))
+    locs_discovered = (await cursor.fetchone())["cnt"]
+
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM user_quests WHERE user_id = ? AND status = 'completed'", (user_id,))
+    quests_completed = (await cursor.fetchone())["cnt"]
+
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM user_crafting WHERE user_id = ?", (user_id,))
+    craft_count = (await cursor.fetchone())["cnt"]
+
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM user_achievements WHERE user_id = ?", (user_id,))
+    has_equipped = await get_equipment(user_id)
+    guild = await get_user_guild(user_id)
+
+    stats = {
+        "kill_count": kill_count,
+        "locations_discovered": locs_discovered,
+        "quests_completed": quests_completed,
+        "level": user["level"],
+        "gold": user["gold"],
+        "craft_count": craft_count,
+        "boss_kills": 0,
+        "pvp_wins": user.get("pvp_wins", 0),
+        "days_in_mist": user.get("days_in_mist", 0),
+        "equipped": 1 if has_equipped else 0,
+        "guild_member": 1 if guild else 0,
+    }
+
+    for ach in ACHIEVEMENT_DEFS:
+        if ach["achievement_id"] in unlocked_ids:
+            continue
+        req = json.loads(ach["requirement"]) if isinstance(ach["requirement"], str) else ach["requirement"]
+        val = stats.get(req.get("type", ""), 0)
+        target = req.get("target", 1)
+        if val >= target:
+            await db.execute(
+                "INSERT OR IGNORE INTO user_achievements (user_id, achievement_id) VALUES (?, ?)",
+                (user_id, ach["achievement_id"])
+            )
+            await update_user(user_id, xp=user["xp"] + ach.get("reward_xp", 0))
+            if ach.get("reward_gold"):
+                await update_user(user_id, gold=user["gold"] + ach["reward_gold"])
+            newly_unlocked.append(ach)
+
+    await db.commit()
+    return newly_unlocked
+
+
+async def get_user_achievements(user_id: int) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT a.*, ua.unlocked_at FROM achievements a
+           LEFT JOIN user_achievements ua ON a.achievement_id = ua.achievement_id AND ua.user_id = ?
+           ORDER BY ua.unlocked_at DESC NULLS LAST""",
+        (user_id,)
+    )
+    return [dict(r) for r in await cursor.fetchall()]
+
+
+# ═══════════════════════════════════════════════
+#  ЕЖЕДНЕВНЫЕ КВЕСТЫ
+# ═══════════════════════════════════════════════
+
+DAILY_QUEST_POOL = [
+    {"quest_id": "daily_kill_3", "name": "Охота дня", "description": "Убей 3 существ", "objective": {"type": "kill_count", "target": 3}, "reward_xp": 50, "reward_gold": 20},
+    {"quest_id": "daily_collect_5", "name": "Сбор дня", "description": "Подбери 5 предметов", "objective": {"type": "pickup_count", "target": 5}, "reward_xp": 30, "reward_gold": 15},
+    {"quest_id": "daily_visit_3", "name": "Странник дня", "description": "Посети 3 локации", "objective": {"type": "visit_count", "target": 3}, "reward_xp": 40, "reward_gold": 10},
+    {"quest_id": "daily_craft_1", "name": "Ремесло дня", "description": "Скрафти 1 предмет", "objective": {"type": "craft_count", "target": 1}, "reward_xp": 40, "reward_gold": 25},
+    {"quest_id": "daily_kill_5", "name": "Расправа дня", "description": "Убей 5 существ", "objective": {"type": "kill_count", "target": 5}, "reward_xp": 80, "reward_gold": 40},
+]
+
+
+async def get_or_create_daily_quests(user_id: int) -> list:
+    from datetime import datetime
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM daily_quests WHERE user_id = ? AND day = ?",
+        (user_id, today)
+    )
+    existing = await cursor.fetchall()
+
+    if existing:
+        return [dict(r) for r in existing]
+
+    pool = random.sample(DAILY_QUEST_POOL, min(3, len(DAILY_QUEST_POOL)))
+    result = []
+    for q in pool:
+        await db.execute(
+            "INSERT INTO daily_quests (user_id, quest_id, day, progress) VALUES (?, ?, ?, ?)",
+            (user_id, q["quest_id"], today, json.dumps({"current": 0, "target": q["objective"]["target"]}))
+        )
+        result.append({"user_id": user_id, "quest_id": q["quest_id"], "day": today, "status": "active",
+                        "progress": json.dumps({"current": 0, "target": q["objective"]["target"]}),
+                        **q})
+    await db.commit()
+    return result
+
+
+async def update_daily_progress(user_id: int, progress_type: str, amount: int = 1) -> list:
+    from datetime import datetime
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT dq.*, q.name as q_name, q.reward_xp, q.reward_gold FROM daily_quests dq "
+        "JOIN (SELECT * FROM (VALUES " + ",".join(f"('{q['quest_id']}','{q['name']}',{q['reward_xp']},{q['reward_gold']})" for q in DAILY_QUEST_POOL) + ") AS q(quest_id, name, reward_xp, reward_gold) "
+        "WHERE dq.quest_id = q.quest_id AND dq.user_id = ? AND dq.day = ? AND dq.status = 'active'",
+        (user_id, today)
+    )
+
+    completed = []
+    rows = await cursor.fetchall()
+    for row in rows:
+        r = dict(row)
+        progress = json.loads(r["progress"]) if isinstance(r["progress"], str) else r["progress"]
+        daily_q = next((q for q in DAILY_QUEST_POOL if q["quest_id"] == r["quest_id"]), None)
+        if not daily_q:
+            continue
+        if daily_q["objective"]["type"] == progress_type:
+            progress["current"] = min(progress["current"] + amount, progress["target"])
+            if progress["current"] >= progress["target"]:
+                r["status"] = "completed"
+                await db.execute(
+                    "UPDATE daily_quests SET status = 'completed', progress = ?, completed_at = datetime('now') WHERE user_id = ? AND quest_id = ? AND day = ?",
+                    (json.dumps(progress), user_id, r["quest_id"], today)
+                )
+                user = await get_or_create_user(user_id)
+                await update_user(user_id, xp=user["xp"] + daily_q["reward_xp"], gold=user["gold"] + daily_q["reward_gold"])
+                completed.append(daily_q)
+            else:
+                await db.execute(
+                    "UPDATE daily_quests SET progress = ? WHERE user_id = ? AND quest_id = ? AND day = ?",
+                    (json.dumps(progress), user_id, r["quest_id"], today)
+                )
+    await db.commit()
+    return completed
+
+
+# ═══════════════════════════════════════════════
+#  БОССЫ
+# ═══════════════════════════════════════════════
+
+BOSS_DATA = {
+    "shadow_lord": {
+        "creature_id": "shadow_lord", "name": "Повелитель теней", "location": "temple_of_shadows",
+        "hp": 200, "attack": 18, "defense": 8, "xp_reward": 300,
+        "description": "Древнее зло, спрятанное в Храме теней. Его глаза горят в темноте.",
+        "special_abilities": json.dumps(["stun", "dark_blast"]),
+        "loot_table": json.dumps([
+            {"item_id": "shadow_essence", "chance": 1.0, "qty": 3},
+            {"item_id": "legendary_essence", "chance": 0.3, "qty": 1},
+            {"item_id": "shadow_cloak", "chance": 0.25, "qty": 1}
+        ])
+    },
+    "frost_leviathan": {
+        "creature_id": "frost_leviathan", "name": "Морозный левиафан", "location": "frozen_lake",
+        "hp": 250, "attack": 20, "defense": 10, "xp_reward": 400,
+        "description": "Гигантское существо, прячущееся под льдом. Земля дрожит, когда оно двигается.",
+        "special_abilities": json.dumps(["frost_breath", "freeze"]),
+        "loot_table": json.dumps([
+            {"item_id": "frozen_tear", "chance": 1.0, "qty": 5},
+            {"item_id": "frost_ring", "chance": 0.2, "qty": 1},
+            {"item_id": "legendary_essence", "chance": 0.25, "qty": 1}
+        ])
+    },
+    "void_emperor": {
+        "creature_id": "void_emperor", "name": "Император пустоты", "location": "void_gate",
+        "hp": 350, "attack": 25, "defense": 12, "xp_reward": 600,
+        "description": "Существо из另一ого мира. Оно не должно существовать здесь.",
+        "special_abilities": json.dumps(["void_drain", "stun", "dark_blast"]),
+        "loot_table": json.dumps([
+            {"item_id": "legendary_essence", "chance": 1.0, "qty": 2},
+            {"item_id": "soul_bottle", "chance": 0.5, "qty": 1},
+            {"item_id": "void_shard", "chance": 0.15, "qty": 1}
+        ])
+    },
+    "mist_dragon": {
+        "creature_id": "mist_dragon", "name": "Дракон тумана", "location": "tower_summit",
+        "hp": 500, "attack": 30, "defense": 15, "xp_reward": 1000,
+        "description": "Древний дракон, чьё дыхание — сам туман. Последнее испытание.",
+        "special_abilities": json.dumps(["fire_breath", "stun", "regenerate"]),
+        "loot_table": json.dumps([
+            {"item_id": "legendary_essence", "chance": 1.0, "qty": 3},
+            {"item_id": "crystal_blade", "chance": 0.3, "qty": 1},
+            {"item_id": "dragon_scale", "chance": 0.5, "qty": 1}
+        ])
+    },
+}
+
+
+async def get_boss_at_location(location: str):
+    for boss_id, data in BOSS_DATA.items():
+        if data["location"] == location:
+            db = await get_db()
+            cursor = await db.execute("SELECT * FROM creatures WHERE creature_id = ?", (boss_id,))
+            row = await cursor.fetchone()
+            if row and row["is_alive"]:
+                return dict(row)
+            elif row and not row["is_alive"]:
+                from datetime import datetime
+                cursor = await db.execute("SELECT last_killed_at FROM boss_spawns WHERE boss_id = ?", (boss_id,))
+                spawn_row = await cursor.fetchone()
+                if spawn_row and spawn_row["last_killed_at"]:
+                    killed_time = datetime.fromisoformat(spawn_row["last_killed_at"])
+                    hours_passed = (datetime.utcnow() - killed_time).total_seconds() / 3600
+                    if hours_passed >= data.get("respawn_hours", 24):
+                        await respawn_boss(boss_id)
+                        cursor = await db.execute("SELECT * FROM creatures WHERE creature_id = ?", (boss_id,))
+                        row = await cursor.fetchone()
+                        return dict(row) if row else None
+            return None
+    return None
+
+
+async def spawn_boss(boss_id: str):
+    data = BOSS_DATA.get(boss_id)
+    if not data:
+        return
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO creatures (creature_id, name, description, location, disposition, hp, max_hp, attack, defense, xp_reward, loot_table, is_alive, spawn_data)
+           VALUES (?, ?, ?, ?, 'hostile', ?, ?, ?, ?, ?, ?, 1, ?)
+           ON CONFLICT(creature_id) DO UPDATE SET
+           hp = ?, max_hp = ?, attack = ?, defense = ?, is_alive = 1, loot_table = ?""",
+        (boss_id, data["name"], data["description"], data["location"],
+         data["hp"], data["hp"], data["attack"], data["defense"], data["xp_reward"], data["loot_table"],
+         json.dumps({"is_boss": True, "abilities": json.loads(data["special_abilities"])}),
+         data["hp"], data["hp"], data["attack"], data["defense"], data["loot_table"])
+    )
+    await db.execute(
+        """INSERT INTO boss_spawns (boss_id, creature_id, location)
+           VALUES (?, ?, ?)
+           ON CONFLICT(boss_id) DO UPDATE SET last_killed_at = NULL""",
+        (boss_id, boss_id, data["location"])
+    )
+    await db.commit()
+
+
+async def respawn_boss(boss_id: str):
+    data = BOSS_DATA.get(boss_id)
+    if not data:
+        return
+    db = await get_db()
+    await db.execute(
+        """UPDATE creatures SET hp = ?, max_hp = ?, attack = ?, defense = ?, is_alive = 1,
+           loot_table = ?, spawn_data = ? WHERE creature_id = ?""",
+        (data["hp"], data["hp"], data["attack"], data["defense"], data["loot_table"],
+         json.dumps({"is_boss": True, "abilities": json.loads(data["special_abilities"])}), boss_id)
+    )
+    await db.execute("UPDATE boss_spawns SET last_killed_at = NULL WHERE boss_id = ?", (boss_id,))
+    await db.commit()
+
+
+# ═══════════════════════════════════════════════
+#  ВСПОМОГАТЕЛЬНЫЕ
+# ═══════════════════════════════════════════════
+
+async def db_fetchone(query, params=()):
+    db = await get_db()
+    cursor = await db.execute(query, params)
+    row = await cursor.fetchone()
+    return dict(row) if row else None

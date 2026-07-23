@@ -1,5 +1,6 @@
+import json
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command
 import game_engine as ge
 
@@ -20,53 +21,23 @@ COMMANDS_DESC = {
     "help": "Список всех доступных команд.",
     "quests": "Посмотреть активные квесты и доступные задания.",
     "shop": "Купить или продать предметы в магазине.",
-    "inventory": "Просмотреть свой инвентарь и предметы.",
-    "locations": "Показать карту локаций и пути.",
-    "status": "Показать статистику персонажа, уровень, накопление.",
-    "whisper": "Слушать таинственные шепоты тумана.",
-    "achievements": "Просмотреть информацию о достижениях.",
+    "inventory": "Переглянути свій інвентар і предмети.",
+    "locations": "Показати карту локацій і шляхи.",
+    "status": "Показати статистику персонажа, рівень, нагромадження.",
+    "whisper": "Слухати таємничі шепоти туману.",
+    "achievements": "Переглянути інформацію про досягнення.",
 }
 
 COMMANDS_EXAMPLES = {
     "help": "<code>/help</code> - показать все команды",
     "quests": "<code>/quests</code> - показать квесты",
     "shop": "<code>/shop</code> - открыть магазин",
-    "inventory": "<code>/inv</code> - показать инвентарь",
-    "locations": "<code>/map</code> - показать карту",
-    "status": "<code>/info</code> - показать статус",
+    "inventory": "<code>/inventory</code> - показать инвентарь",
+    "locations": "<code>/locations</code> - показать карту",
+    "status": "<code>/status</code> - показать статус",
     "whisper": "<code>/whisper</code> - послушать шёпот",
-    "achievements": "<code>/ach</code> - показать достижения",
+    "achievements": "<code>/achievements</code> - показать достижения",
 }
-
-
-@router.message(Command("guild_donate"))
-async def cmd_guild_donate(message: Message):
-    if message.chat.type != "private":
-        return
-
-    parts = message.text.split()
-    if len(parts) < 2:
-        await message.answer(
-            "📝 <b>Использование:</b>\n<code>/guild_donate сумма</code>\n\n"
-            "<i>Пример: /guild_donate 20</i>",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
-            ])
-        )
-        return
-
-    try:
-        amount = int(parts[1])
-    except ValueError:
-        await message.answer("Сумма должна быть числом.")
-        return
-
-    result = await ge.guild_donate(message.from_user.id, amount)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
-        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
-    ])
-    await message.answer(result["message"], reply_markup=kb)
 
 
 @router.message(Command("start"))
@@ -156,24 +127,24 @@ async def cmd_quests(message: Message):
                 progress = json.loads(q["progress"]) if isinstance(q["progress"], str) else q["progress"]
                 objectives = json.loads(q["objectives"]) if isinstance(q["objectives"], str) else q["objectives"]
                 loc_name = LOC_NAMES.get(q.get("location", ""), q.get("location", ""))
-                text += f"  📜 <b>{q['name']}</b>\n"
-                text += f"    🗺️ {loc_name}\n"
+                text += f"\n📋 <b>{q['name']}</b>\n"
+                text += f"  📍 {loc_name}\n"
                 for obj in objectives:
                     p = progress.get(obj["id"], {"current": 0, "target": obj["target"]})
-                    done = "✅" if p["current"] >= p["target"] else "✨"
-                    text += f"    {done} {obj['description']}: {p['current']}/{p['target']}\n"
+                    done = "✅" if p["current"] >= p["target"] else "⬜"
+                    text += f"  {done} {obj['description']}: {p['current']}/{p['target']}\n"
 
     if available_here:
-        text += "\n<⚡> <b>Доступны здесь:</b>\n"
+        text += "\n<b>📜 Доступны здесь:</b>\n"
         for q in available_here:
-            text += f"  🌟 {q['name']}\n"
+            text += f"  → {q['name']}\n"
 
     remote = [q for q in all_available_quests if q["quest_id"] not in active_ids and q["quest_id"] not in available_quest_ids]
     if remote:
-        text += "\n<🗺️> <b>Другие квесты:</b>\n"
+        text += "\n<b>Другие квесты:</b>\n"
         for q in remote:
             loc_name = LOC_NAMES.get(q["location"], q["location"])
-            text += f"  🌍 {q['name']} <i>({loc_name})</i>\n"
+            text += f"  • {q['name']} <i>({loc_name})</i>\n"
 
     if not active_quests and not available_here and not remote:
         text += "Пока ничего. Иди исследуй мир — квесты найдутся."
@@ -209,9 +180,9 @@ async def cmd_shop(message: Message):
         return
 
     text = f"🛒 <b>Магазин</b>\n\n💰 Золото: {user['gold']} 🪙\n\n"
-    text += "🎯 Доступны торговые точки:\n"
+    text += "Доступны магазины:\n"
     for shop_id in available_shops:
-        text += f"  🏪 {SHOP_LOCATIONS[shop_id]}\n"
+        text += f"  • {SHOP_LOCATIONS[shop_id]}\n"
 
     buttons = []
     for shop_id in available_shops:
@@ -369,7 +340,7 @@ async def cmd_achievements(message: Message):
         lines.append("")
         lines.append("🔓 <b>Новые достижения!</b>")
         for nl in newly_unlocked:
-            lines.append(f"🔔 {nl['name']} — {nl['description']}")
+            lines.append(f"🩸 {nl['name']} — {nl['description']}")
 
     category_order = [
         "combat", "explore", "quests", "progress",

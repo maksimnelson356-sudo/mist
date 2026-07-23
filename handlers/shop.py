@@ -16,8 +16,8 @@ SHOP_LOCATIONS = {
 def _shop_main_kb(user_gold: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"💰 Золото: {user_gold} 🪙", callback_data="shop_balance")],
-        [InlineKeyboardButton(text="🛒 Купить", callback_data="shop_buy")],
-        [InlineKeyboardButton(text="💰 Продать", callback_data="shop_sell")],
+        [InlineKeyboardButton(text="🛒 Купля", callback_data="shop_buy")],
+        [InlineKeyboardButton(text="💰 Продажа", callback_data="shop_sell")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
 
@@ -42,9 +42,9 @@ async def cb_shop(callback: CallbackQuery):
         return
 
     text = f"🛒 <b>Магазин</b>\n\n💰 Золото: {user['gold']} 🪙\n\n"
-    text += "Доступны магазины:\n"
+    text += "🎯 Доступны торговые точки:\n"
     for shop_id in available_shops:
-        text += f"  • {SHOP_LOCATIONS[shop_id]}\n"
+        text += f"  🏪 {SHOP_LOCATIONS[shop_id]}\n"
 
     buttons = []
     for shop_id in available_shops:

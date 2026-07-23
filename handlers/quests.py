@@ -41,24 +41,24 @@ async def cb_quests(callback: CallbackQuery):
                 progress = json.loads(q["progress"]) if isinstance(q["progress"], str) else q["progress"]
                 objectives = json.loads(q["objectives"]) if isinstance(q["objectives"], str) else q["objectives"]
                 loc_name = LOC_NAMES.get(q.get("location", ""), q.get("location", ""))
-                text += f"\n📋 <b>{q['name']}</b>\n"
-                text += f"  📍 {loc_name}\n"
+                text += f"  📜 <b>{q['name']}</b>\n"
+                text += f"    🗺️ {loc_name}\n"
                 for obj in objectives:
                     p = progress.get(obj["id"], {"current": 0, "target": obj["target"]})
-                    done = "✅" if p["current"] >= p["target"] else "⬜"
-                    text += f"  {done} {obj['description']}: {p['current']}/{p['target']}\n"
+                    done = "✅" if p["current"] >= p["target"] else "✨"
+                    text += f"    {done} {obj['description']}: {p['current']}/{p['target']}\n"
 
     if available_here:
-        text += "\n<b>📜 Доступны здесь:</b>\n"
+        text += "\n<⚡> <b>Доступны здесь:</b>\n"
         for q in available_here:
-            text += f"  → {q['name']}\n"
+            text += f"  🌟 {q['name']}\n"
 
     remote = [q for q in all_available_quests if q["quest_id"] not in active_ids and q["quest_id"] not in available_quest_ids]
     if remote:
-        text += "\n<b>Другие квесты:</b>\n"
+        text += "\n<🗺️> <b>Другие квесты:</b>\n"
         for q in remote:
             loc_name = LOC_NAMES.get(q["location"], q["location"])
-            text += f"  • {q['name']} <i>({loc_name})</i>\n"
+            text += f"  🌍 {q['name']} <i>({loc_name})</i>\n"
 
     if not active_quests and not available_here and not remote:
         text += "Пока ничего. Иди исследуй мир — квесты найдутся."

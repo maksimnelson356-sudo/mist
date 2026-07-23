@@ -270,3 +270,72 @@ CREATE TABLE IF NOT EXISTS player_trades (
     created_at TEXT DEFAULT (datetime('now')),
     completed_at TEXT
 );
+
+-- Эффекты статуса игроков
+CREATE TABLE IF NOT EXISTS user_status_effects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(user_id),
+    effect_type TEXT NOT NULL,
+    potency INTEGER DEFAULT 1,
+    duration INTEGER DEFAULT 3,
+    applied_at TEXT DEFAULT (datetime('now')),
+    source TEXT,
+    UNIQUE(user_id, effect_type)
+);
+
+-- Экипировка игроков
+CREATE TABLE IF NOT EXISTS user_equipment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(user_id),
+    slot TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    equipped_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, slot)
+);
+
+-- Достижения
+CREATE TABLE IF NOT EXISTS achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    achievement_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT DEFAULT '🏅',
+    category TEXT DEFAULT 'general',
+    requirement TEXT DEFAULT '{}',
+    reward_xp INTEGER DEFAULT 50,
+    reward_gold INTEGER DEFAULT 0,
+    reward_item TEXT,
+    is_secret INTEGER DEFAULT 0
+);
+
+-- Разблокированные достижения
+CREATE TABLE IF NOT EXISTS user_achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(user_id),
+    achievement_id TEXT REFERENCES achievements(achievement_id),
+    unlocked_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, achievement_id)
+);
+
+-- Ежедневные квесты
+CREATE TABLE IF NOT EXISTS daily_quests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(user_id),
+    quest_id TEXT NOT NULL,
+    day TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
+    progress TEXT DEFAULT '{}',
+    completed_at TEXT,
+    UNIQUE(user_id, quest_id, day)
+);
+
+-- Спавны боссов
+CREATE TABLE IF NOT EXISTS boss_spawns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    boss_id TEXT UNIQUE NOT NULL,
+    creature_id TEXT NOT NULL,
+    location TEXT NOT NULL,
+    respawn_hours INTEGER DEFAULT 24,
+    last_killed_at TEXT,
+    killed_by INTEGER REFERENCES users(user_id)
+);

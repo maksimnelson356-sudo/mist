@@ -31,7 +31,7 @@ async def cb_crafting_menu(callback: CallbackQuery):
         await callback.answer()
         return
 
-    text = f"⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n"
+    text = f"⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n🌟"
     buttons = []
     for r in recipes:
         ingredients = json.loads(r["ingredients"]) if isinstance(r["ingredients"], str) else r["ingredients"]
