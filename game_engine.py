@@ -502,6 +502,8 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
 
         if leveled:
             await _apply_level_up(user_id, new_level)
+        result_log["leveled"] = leveled
+        result_log["new_level"] = new_level if leveled else user["level"]
         await update_user(user_id, xp=new_xp, level=new_level, hp=min(user["max_hp"], user_hp + 20), gold=user["gold"] + gold_reward)
         result_log["gold_gained"] = gold_reward
 
@@ -706,7 +708,14 @@ async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, 
         await _log_action(user_id, "quest_complete", {"quest_id": quest_id, "name": uq["name"]})
         await discover_legend(f"quest_{quest_id}", "lore", uq["name"], uq.get("description", ""), user_id)
 
-        return {"success": True, "completed": True, "rewards": rewards, "message": f"🏆 Квест выполнен: <b>{uq['name']}</b>!"}
+        msg = "🏆 <b>Квест выполнен</b>\n\n"
+        msg += "<pre>✨📜✨\n🏆⭐🏆\n✨📜✨</pre>\n"
+        msg += f"📜 <b>{uq['name']}</b>!"
+        if "xp" in rewards:
+            msg += f"\n\n+{rewards['xp']} XP"
+        if leveled:
+            msg += "\n\n<pre>⭐\n🔥⚔️🔥\n⭐</pre>\n⭐ <b>УРОВЕНЬ ПОВЫШЕН → {new_level}</b>!"
+        return {"success": True, "completed": True, "rewards": rewards, "message": msg}
     else:
         await db.execute(
             "UPDATE user_quests SET progress = ? WHERE user_id = ? AND quest_id = ?",
@@ -847,6 +856,7 @@ async def use_item(user_id: int, item_id: str) -> dict:
         fresh = await get_or_create_user(user_id)
         await update_user(user_id, hp=fresh["max_hp"])
         messages.append("⭐ Уровень Increased!")
+        messages.append("<pre>⭐\n🔥⚔️🔥\n⭐</pre>")
 
     if "light" in effect:
         messages.append("💡 Жемчужина светится тёплым светом. Ты видишь то, что было скрыто.")

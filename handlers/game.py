@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import CommandStart
 import game_engine as ge
+from scenes import LOC_SCENES, CREATURE_SCENES, SCENE_DIVIDER
 
 router = Router()
 
@@ -131,6 +132,7 @@ async def cmd_start(message: Message, bot_username: str):
 
     if not user["is_alive"]:
         text = (
+            "<pre>💀\n🕯️👁🕯️\n💀</pre>\n"
             "💀 <b>Ты мёртв.</b>\n\n"
             "Туман накрыл тебя. Но он не отпускает.\n"
             "Ты чувствуешь — ты ещё нужен."
@@ -142,7 +144,11 @@ async def cmd_start(message: Message, bot_username: str):
         return
 
     loc = await ge.get_location(user["current_location"])
-    text = (
+    scene = LOC_SCENES.get(user["current_location"], "")
+    text = ""
+    if scene:
+        text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+    text += (
         "🌫 <b>Добро пожаловать в MIST</b>\n\n"
         "Ты просыпаешься в тумане.\n"
         "Не помнишь, как сюда попал.\n\n"
@@ -201,7 +207,7 @@ async def cb_main_menu(callback: CallbackQuery):
     user = await ge.get_or_create_user(callback.from_user.id, callback.from_user.username)
 
     if not user["is_alive"]:
-        text = "💀 <b>Ты мёртв.</b>\n\nТуман накрыл тебя."
+        text = "<pre>💀\n🕯️👁🕯️\n💀</pre>\n💀 <b>Ты мёртв.</b>\n\nТуман накрыл тебя."
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ])
@@ -210,7 +216,11 @@ async def cb_main_menu(callback: CallbackQuery):
         return
 
     loc = await ge.get_location(user["current_location"])
-    text = (
+    scene = LOC_SCENES.get(user["current_location"], "")
+    text = ""
+    if scene:
+        text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+    text += (
         f"📍 <b>{loc['name']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
@@ -236,7 +246,11 @@ async def cb_look(callback: CallbackQuery):
     creatures = await ge.get_creatures_at_location(user["current_location"])
     ground = await ge.get_ground_items(user["current_location"])
 
-    text = f"🌍 <b>{loc['name']}</b>\n\n{loc['description']}\n"
+    scene = LOC_SCENES.get(user["current_location"], "")
+    text = ""
+    if scene:
+        text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+    text += f"🌍 <b>{loc['name']}</b>\n\n{loc['description']}\n"
 
     if creatures:
         text += "\n👁 <b>Здесь есть:</b>\n"
@@ -312,7 +326,11 @@ async def cb_creature_action(callback: CallbackQuery):
         return
 
     icon = {"hostile": "🔴", "neutral": "🟡", "friendly": "🟢"}.get(creature["disposition"], "⚪")
-    text = f"{icon} <b>{creature['name']}</b>\n\n{creature['description']}\n"
+    scene = CREATURE_SCENES.get(creature_id, "")
+    text = ""
+    if scene:
+        text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+    text += f"{icon} <b>{creature['name']}</b>\n\n{creature['description']}\n"
 
     buttons = []
     if creature["disposition"] == "friendly":
@@ -459,7 +477,11 @@ async def cb_move(callback: CallbackQuery):
     result = await ge.move_user(callback.from_user.id, target)
 
     if result["success"]:
-        text = f"🚶 <b>{result['name']}</b>\n\n{result['description']}"
+        scene = LOC_SCENES.get(target, "")
+        text = ""
+        if scene:
+            text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+        text += f"🚶 <b>{result['name']}</b>\n\n{result['description']}"
         if result.get("first_discover"):
             text += "\n\n⚡ <b>Ты первый, кто открыл эту область!</b>"
             await ge.discover_legend(
@@ -529,7 +551,10 @@ async def cb_fight_menu(callback: CallbackQuery):
         text = "⚔️ <b>Кого атакуем?</b>\n\n"
         for c in hostile:
             icon = "🔴" if c["disposition"] == "hostile" else "🟡"
-            text += f"{icon} {c['name']} — HP: {c['hp']}, Атака: {c['attack']}\n"
+            scene = CREATURE_SCENES.get(c["creature_id"], "")
+            if scene:
+                text += f"<pre>{scene}</pre>\n"
+            text += f"{icon} {c['name']} — HP: {c['hp']}, Атака: {c['attack']}\n\n"
         kb = combat_kb(hostile)
 
     await callback.message.edit_text(text, reply_markup=kb)
@@ -548,7 +573,11 @@ async def cb_attack(callback: CallbackQuery):
 
     combat = await ge.resolve_combat(callback.from_user.id, creature_id)
 
-    text = f"⚔️ <b>Бой с {result['creature']['name']}</b>\n\n"
+    scene = CREATURE_SCENES.get(creature_id, "")
+    text = ""
+    if scene:
+        text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+    text += f"⚔️ <b>Бой с {result['creature']['name']}</b>\n\n"
 
     for rd in combat.get("rounds", [])[:5]:
         ud = rd.get("user_damage", 0)
@@ -558,12 +587,16 @@ async def cb_attack(callback: CallbackQuery):
     text += f"\n❤️ Твоё HP: {combat['user_hp']}\n"
 
     if combat["outcome"] == "victory":
-        text += f"\n🏆 <b>ПОБЕДА!</b>\n+{combat['xp_gained']} XP"
+        text += "\n<pre>🏆⚔️🏆\n🔥🐺🔥\n🏆⚔️🏆</pre>\n"
+        text += f"🏆 <b>ПОБЕДА!</b>\n+{combat['xp_gained']} XP"
+        if combat.get("leveled"):
+            text += f"\n\n<pre>⭐\n🔥⚔️🔥\n⭐</pre>\n⭐ <b>УРОВЕНЬ → {combat['new_level']}</b>!"
         if combat.get("gold_gained"):
             text += f"\n+{combat['gold_gained']} 🪙"
         if combat["loot"]:
             text += f"\n📦 Лут: {', '.join(combat['loot'])}"
     elif combat["outcome"] == "defeat":
+        text += "\n<pre>💀\n🕯️👁🕯️\n💀</pre>\n"
         text += "\n💀 <b>ПОРАЖЕНИЕ</b>\nТы очнулся... где-то раньше."
     else:
         text += "\n🤝 <b>НИЧЬЯ</b>\nОба отступили."
