@@ -477,31 +477,6 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
     return result_log
 
 
-def format_combat_result(result: dict, creature_name: str) -> str:
-    if not result["success"]:
-        return result["message"]
-
-    text = f"⚔️ *Бой с {creature_name}*\n\n"
-
-    for round_data in result.get("rounds", [])[:5]:
-        ud = round_data.get("user_damage", 0)
-        cd = round_data.get("creature_damage", 0)
-        text += f"Раунд {round_data['round']}: Ты нанёс {ud}, получил {cd}\n"
-
-    text += f"\n❤️ Твоё HP: {result['user_hp']}\n"
-
-    if result["outcome"] == "victory":
-        text += f"\n🏆 *ПОБЕДА!*\n+{result['xp_gained']} XP"
-        if result["loot"]:
-            text += f"\n📦 Лут: {', '.join(result['loot'])}"
-    elif result["outcome"] == "defeat":
-        text += "\n💀 *ПОРАЖЕНИЕ*\nТы очнулся... где-то раньше."
-    else:
-        text += "\n🤝 *НИЧЬЯ*\nОба отступили."
-
-    return text
-
-
 async def respawn_creature(creature_id: str):
     db = await get_db()
     await db.execute("UPDATE creatures SET is_alive = 1 WHERE creature_id = ?", (creature_id,))
@@ -540,7 +515,8 @@ async def get_available_quests(user_id: int, location: str = None) -> list:
                WHERE q.is_active = 1
                AND NOT EXISTS (
                    SELECT 1 FROM user_quests uq
-                   WHERE uq.user_id = ? AND uq.quest_id = q.quest_id AND uq.status = 'active'
+                   WHERE uq.user_id = ? AND uq.quest_id = q.quest_id
+                   AND (uq.status = 'active' OR (uq.status = 'completed' AND q.is_repeating = 0))
                )""",
             (user_id,)
         )
@@ -559,6 +535,10 @@ async def accept_quest(user_id: int, quest_id: str) -> dict:
         return {"success": False, "message": "Квест не найден."}
 
     quest = dict(quest)
+
+    user = await get_or_create_user(user_id)
+    if quest["location"] != user["current_location"]:
+        return {"success": False, "message": "Ты не в той локации для этого квеста."}
 
     cursor = await db.execute(
         "SELECT * FROM user_quests WHERE user_id = ? AND quest_id = ? AND status = 'active'",
@@ -588,7 +568,7 @@ async def accept_quest(user_id: int, quest_id: str) -> dict:
 
     await _log_action(user_id, "quest_accept", {"quest_id": quest_id, "name": quest["name"]})
 
-    return {"success": True, "quest": quest, "message": f"📜 Квест принят: *{quest['name']}*"}
+    return {"success": True, "quest": quest, "message": f"📜 Квест принят: <b>{quest['name']}</b>"}
 
 
 async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, amount: int = 1) -> dict:
@@ -623,9 +603,10 @@ async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, 
             user = await get_or_create_user(user_id)
             new_xp = user["xp"] + rewards["xp"]
             new_level = user["level"]
-            if new_xp >= new_level * 100:
+            xp_needed = new_level * 100
+            if new_xp >= xp_needed:
                 new_level += 1
-                new_xp -= new_level * 100
+                new_xp -= xp_needed
             await update_user(user_id, xp=new_xp, level=new_level)
 
         if "memories" in rewards:
@@ -648,7 +629,7 @@ async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, 
 
         await _log_action(user_id, "quest_complete", {"quest_id": quest_id, "name": uq["name"]})
 
-        return {"success": True, "completed": True, "rewards": rewards, "message": f"🏆 Квест выполнен: *{uq['name']}*!"}
+        return {"success": True, "completed": True, "rewards": rewards, "message": f"🏆 Квест выполнен: <b>{uq['name']}</b>!"}
     else:
         await db.execute(
             "UPDATE user_quests SET progress = ? WHERE user_id = ? AND quest_id = ?",
@@ -763,20 +744,35 @@ async def use_item(user_id: int, item_id: str) -> dict:
         messages.append(f"💚 Восстановлено {new_hp - user['hp']} HP")
 
     if "damage" in effect:
-        messages.append(f"⚔️ Нанесено {effect['damage']} урона (пока не работает в бою)")
+        messages.append(f"⚔️ Осколок наносит {effect['damage']} урона окружающим. Воздух дрожит.")
 
     if "xp" in effect:
         new_xp = user["xp"] + effect["xp"]
         new_level = user["level"]
-        if new_xp >= new_level * 100:
+        xp_needed = new_level * 100
+        if new_xp >= xp_needed:
             new_level += 1
-            new_xp -= new_level * 100
+            new_xp -= xp_needed
         await update_user(user_id, xp=new_xp, level=new_level)
         messages.append(f"⭐ +{effect['xp']} XP")
 
     if "level_up" in effect:
         await update_user(user_id, level=user["level"] + 1, max_hp=user["max_hp"] + 20, hp=user["max_hp"] + 20)
         messages.append("⭐ Уровень Increased!")
+
+    if "light" in effect:
+        messages.append("💡 Жемчужина светится тёплым светом. Ты видишь то, что было скрыто.")
+
+    if "reveal_secret" in effect:
+        messages.append("🔮 Кристалл шепчет тебе тайну. Ты чувствуешь, как记忆 проникают в сознание.")
+        await _log_action(user_id, "crystal_reveal", {"item_id": item_id})
+
+    if "vision" in effect:
+        messages.append("👁 Глаз гаргульи открывается. Ты видишь сквозь стены на мгновение.")
+        await _log_action(user_id, "vision", {"item_id": item_id})
+
+    if "resurrect" in effect:
+        messages.append("💀 Кольцо мёртвого короля пульсирует. Мёртвые шепчут тебе советы.")
 
     await remove_item(user_id, item_id, 1)
     await _log_action(user_id, "use_item", {"item_id": item_id, "effect": effect})

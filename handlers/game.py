@@ -14,7 +14,7 @@ def is_my_message(message: Message, bot_username: str) -> bool:
         cmd = message.text.split()[0].lstrip("/")
         if "@" in cmd:
             return cmd.split("@")[1].lower() == bot_username.lower()
-        return True
+        return False
     return True
 
 
