@@ -206,3 +206,67 @@ CREATE TABLE IF NOT EXISTS shop_items (
     required_karma INTEGER DEFAULT 0,
     UNIQUE(shop_id, item_id)
 );
+
+-- Крафт: рецепты
+CREATE TABLE IF NOT EXISTS crafting_recipes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    result_item TEXT NOT NULL,
+    result_qty INTEGER DEFAULT 1,
+    ingredients TEXT NOT NULL DEFAULT '[]',
+    required_location TEXT,
+    required_level INTEGER DEFAULT 1,
+    xp_reward INTEGER DEFAULT 10,
+    is_active INTEGER DEFAULT 1
+);
+
+-- Крафт: прогресс игрока
+CREATE TABLE IF NOT EXISTS user_crafting (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(user_id),
+    recipe_id TEXT NOT NULL,
+    times_crafted INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, recipe_id)
+);
+
+-- Гильдии
+CREATE TABLE IF NOT EXISTS guilds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    leader_id INTEGER REFERENCES users(user_id),
+    level INTEGER DEFAULT 1,
+    xp INTEGER DEFAULT 0,
+    gold INTEGER DEFAULT 0,
+    motto TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Гильдии: участники
+CREATE TABLE IF NOT EXISTS guild_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT REFERENCES guilds(guild_id),
+    user_id INTEGER REFERENCES users(user_id),
+    role TEXT DEFAULT 'member',
+    contribution INTEGER DEFAULT 0,
+    joined_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(guild_id, user_id)
+);
+
+-- Трейдинг между игроками
+CREATE TABLE IF NOT EXISTS player_trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user INTEGER REFERENCES users(user_id),
+    to_user INTEGER REFERENCES users(user_id),
+    items_offered TEXT DEFAULT '[]',
+    gold_offered INTEGER DEFAULT 0,
+    items_wanted TEXT DEFAULT '[]',
+    gold_wanted INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT (datetime('now')),
+    completed_at TEXT
+);

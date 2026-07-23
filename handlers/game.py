@@ -36,6 +36,9 @@ def main_menu_kb():
         [InlineKeyboardButton(text="💚 Исцелиться", callback_data="heal")],
         [InlineKeyboardButton(text="🎒 Инвентарь", callback_data="inventory")],
         [InlineKeyboardButton(text="🛒 Магазин", callback_data="shop")],
+        [InlineKeyboardButton(text="⚒️ Крафт", callback_data="crafting_menu")],
+        [InlineKeyboardButton(text="🤝 Трейдинг", callback_data="trade_menu")],
+        [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
         [InlineKeyboardButton(text="👤 Статус", callback_data="status")],
         [InlineKeyboardButton(text="🔮 Шёпот тумана", callback_data="whisper")],
         [InlineKeyboardButton(text="🏆 Энциклопедия", callback_data="legends")],
@@ -711,3 +714,50 @@ async def cb_legends(callback: CallbackQuery):
     )
     await callback.message.edit_text(text, reply_markup=back_menu_kb())
     await callback.answer()
+
+
+# ──────────────────────────────────────────────
+#  /trade — быстрый трейд
+# ──────────────────────────────────────────────
+
+from aiogram.filters import Command
+
+@router.message(Command("trade"))
+async def cmd_trade(message: Message):
+    if message.chat.type != "private":
+        return
+
+    parts = message.text.split()
+    if len(parts) < 3:
+        await message.answer(
+            "📝 <b>Использование:</b>\n"
+            "<code>/trade ID золото предмет:кол-во предмет:кол-во</code>\n\n"
+            "<i>Пример:\n/trade 123456 10 wolf_fang:3 old_coin:2</i>",
+            reply_markup=back_menu_kb()
+        )
+        return
+
+    try:
+        target_id = int(parts[1])
+        gold = int(parts[2])
+    except ValueError:
+        await message.answer("Неверный формат. ID и золото должны быть числами.")
+        return
+
+    items_offered = []
+    for part in parts[3:]:
+        if ":" in part:
+            item_id, qty = part.split(":", 1)
+            items_offered.append({"item_id": item_id, "qty": int(qty)})
+        else:
+            items_offered.append({"item_id": part, "qty": 1})
+
+    result = await ge.create_trade(
+        message.from_user.id, target_id,
+        items_offered, gold, [], 0
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🤝 Трейдинг", callback_data="trade_menu")],
+    ])
+    await message.answer(result["message"], reply_markup=kb)

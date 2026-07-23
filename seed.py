@@ -27,7 +27,7 @@ async def seed():
                 "Здесь ты очнулся. Запомни это место."
             ),
             "discovered": 1,
-            "connections": json.dumps(["riverbank", "ancient_ruins", "wolf_den", "dark_harbour", "witch_swamp"]),
+            "connections": json.dumps(["riverbank", "ancient_ruins", "wolf_den", "dark_harbour", "witch_swamp", "abandoned_camp"]),
             "is_secret": 0,
             "required_karma": 0,
         },
@@ -39,7 +39,7 @@ async def seed():
                 "На противоположном берегу — что-то блестит.\n\n"
                 "Рыбак говорит, что в этой реке водятся существа, которых лучше не видеть."
             ),
-            "connections": json.dumps(["dark_forest", "fishing_village", "underwater_cave", "dark_harbour"]),
+            "connections": json.dumps(["dark_forest", "fishing_village", "underwater_cave", "dark_harbour", "abandoned_camp"]),
             "is_secret": 0,
             "required_karma": 0,
         },
@@ -51,7 +51,7 @@ async def seed():
                 "с невиданными символами. Каждый символ слабо светится в темноте.\n\n"
                 "Здесь царит тишина. Но ты чувствуешь — за тобой наблюдают."
             ),
-            "connections": json.dumps(["dark_forest", "library_of_echoes", "obsidian_tower", "crystal_cave", "ash_fields"]),
+            "connections": json.dumps(["dark_forest", "library_of_echoes", "obsidian_tower", "crystal_cave", "ash_fields", "portal_nexus"]),
             "is_secret": 0,
             "required_karma": 0,
         },
@@ -135,7 +135,7 @@ async def seed():
                 "Здесь холодно. Не от температуры — от чего-то внутри.\n\n"
                 "Это место помнит что-то страшное. И не хочет, чтобы ты знал что."
             ),
-            "connections": json.dumps(["blood_meadow", "frozen_lake", "forgotten_graveyard", "ash_fields"]),
+            "connections": json.dumps(["blood_meadow", "frozen_lake", "forgotten_graveyard", "ash_fields", "enchanted_grove"]),
             "is_secret": 0,
             "required_karma": 0,
         },
@@ -219,7 +219,7 @@ async def seed():
                 "Абсолютная. Ты смотришь в неё — и она смотрит в тебя.\n\n"
                 "За вратами — конец. Или начало."
             ),
-            "connections": json.dumps(["temple_of_shadows", "heart_of_mist"]),
+            "connections": json.dumps(["temple_of_shadows", "heart_of_mist", "portal_nexus"]),
             "is_secret": 0,
             "required_karma": 20,
         },
@@ -232,7 +232,7 @@ async def seed():
                 "Тех, кто был до тебя. Тех, кто будет после.\n\n"
                 "MIST — это не место. MIST — это ты."
             ),
-            "connections": json.dumps(["frozen_lake", "void_gate"]),
+            "connections": json.dumps(["frozen_lake", "void_gate", "portal_nexus"]),
             "is_secret": 1,
             "required_karma": 30,
         },
@@ -245,7 +245,7 @@ async def seed():
                 "Среди мглы — силуэт хижины на куриных ножках.\n\n"
                 "Ведьма здесь. Она знает твоё имя."
             ),
-            "connections": json.dumps(["dark_forest", "blood_meadow", "forgotten_graveyard"]),
+            "connections": json.dumps(["dark_forest", "blood_meadow", "forgotten_graveyard", "enchanted_grove"]),
             "is_secret": 0,
             "required_karma": 0,
         },
@@ -270,7 +270,7 @@ async def seed():
                 "синим, фиолетовым, белым. Свет мерцает, как живой.\n\n"
                 "Кристаллы звенят, когда ты проходишь мимо. Они поют."
             ),
-            "connections": json.dumps(["ancient_ruins", "underwater_cave", "ash_fields"]),
+            "connections": json.dumps(["ancient_ruins", "underwater_cave", "ash_fields", "abandoned_mine"]),
             "is_secret": 0,
             "required_karma": 5,
         },
@@ -294,7 +294,7 @@ async def seed():
                 "Воздух тяжёлый, горячий. Из трещин в земле сочится пар.\n\n"
                 "Здесь когда-то был город. Теперь — только пепел и воспоминания."
             ),
-            "connections": json.dumps(["white_forest", "crystal_cave", "ancient_ruins"]),
+            "connections": json.dumps(["white_forest", "crystal_cave", "ancient_ruins", "abandoned_mine"]),
             "is_secret": 0,
             "required_karma": 5,
         },
@@ -309,6 +309,55 @@ async def seed():
             "connections": json.dumps(["market_square", "temple_of_shadows"]),
             "is_secret": 0,
             "required_karma": 10,
+        },
+        # ═══ НОВЫЕ ЛОКАЦИИ v2 ═══
+        {
+            "location_id": "abandoned_mine",
+            "name": "Заброшенная шахта",
+            "description": (
+                "Рельсы заржавели. Вагонетки стоят на месте. "
+                "Из глубины — стук киркомолота. Но работников нет.\n\n"
+                "Шахта помнит тех, кто спустился и не вернулся."
+            ),
+            "connections": json.dumps(["crystal_cave", "ash_fields"]),
+            "is_secret": 0,
+            "required_karma": 3,
+        },
+        {
+            "location_id": "enchanted_grove",
+            "name": "Зачарованная роща",
+            "description": (
+                "Деревья здесь светятся. Листья — из света. "
+                "Корни переплетаются, образуя узоры.\n\n"
+                "В центре — дерево, внутри которого что-то пульсирует."
+            ),
+            "connections": json.dumps(["white_forest", "witch_swamp"]),
+            "is_secret": 0,
+            "required_karma": 8,
+        },
+        {
+            "location_id": "abandoned_camp",
+            "name": "Покинутый лагерь",
+            "description": (
+                "Костёр ещё тлеет. Палатка порвана. "
+                "На земле — следы. Много следов.\n\n"
+                "Кто-то был здесь недавно. И ушёл... быстро."
+            ),
+            "connections": json.dumps(["dark_forest", "riverbank"]),
+            "is_secret": 0,
+            "required_karma": 0,
+        },
+        {
+            "location_id": "portal_nexus",
+            "name": "Узел порталов",
+            "description": (
+                "Четыре арки из разного камня. В каждой — вихрь. "
+                "Каждый портал ведёт в разное место.\n\n"
+                "Здесь время течёт иначе. Слишком иначе."
+            ),
+            "connections": json.dumps(["ancient_ruins", "void_gate", "heart_of_mist"]),
+            "is_secret": 1,
+            "required_karma": 25,
         },
     ]
 
@@ -619,6 +668,92 @@ async def seed():
                 {"item_id": "tentacle_strip", "chance": 0.4, "qty": 2},
             ]),
         },
+        # ═══ НОВЫЕ СУЩЕСТВА v2 ═══
+        {
+            "creature_id": "mine_crawler",
+            "name": "Шахтёр-ползун",
+            "description": "Существо, мутировавшее от кристаллов. Оно ползёт по стенам шахты.",
+            "location": "abandoned_mine",
+            "disposition": "hostile",
+            "hp": 85, "max_hp": 85,
+            "attack": 15, "defense": 10,
+            "xp_reward": 40,
+            "loot_table": json.dumps([
+                {"item_id": "raw_crystal", "chance": 0.6, "qty": 2},
+                {"item_id": "mine_pickaxe", "chance": 0.2, "qty": 1},
+            ]),
+        },
+        {
+            "creature_id": "crystal_spider",
+            "description": "Паук из кристалла. Его яд — светящаяся жидкость.",
+            "name": "Кристальный паук",
+            "location": "abandoned_mine",
+            "disposition": "hostile",
+            "hp": 60, "max_hp": 60,
+            "attack": 13, "defense": 8,
+            "xp_reward": 30,
+            "loot_table": json.dumps([
+                {"item_id": "crystal_thread", "chance": 0.5, "qty": 1},
+                {"item_id": "spider_venom", "chance": 0.3, "qty": 1},
+            ]),
+        },
+        {
+            "creature_id": "grove_sprite",
+            "name": "Дух рощи",
+            "description": "Крошечное светящееся существо. Оно хранит древние знания.",
+            "location": "enchanted_grove",
+            "disposition": "neutral",
+            "hp": 35, "max_hp": 35,
+            "attack": 6, "defense": 12,
+            "xp_reward": 20,
+            "loot_table": json.dumps([
+                {"item_id": "grove_essence", "chance": 0.6, "qty": 1},
+                {"item_id": "light_leaf", "chance": 0.4, "qty": 2},
+            ]),
+        },
+        {
+            "creature_id": "ancient_warden",
+            "name": "Древний страж",
+            "description": "Статуя, ожившая из камня и мха. Она защищает рощу.",
+            "location": "enchanted_grove",
+            "disposition": "hostile",
+            "hp": 130, "max_hp": 130,
+            "attack": 20, "defense": 16,
+            "xp_reward": 65,
+            "loot_table": json.dumps([
+                {"item_id": "warden_heart", "chance": 0.3, "qty": 1},
+                {"item_id": "mossy_stone", "chance": 0.6, "qty": 2},
+            ]),
+        },
+        {
+            "creature_id": "camp_stalker",
+            "name": "Лагерный вор",
+            "description": "Существо, подражающее голосам. Оно заманивает в ловушку.",
+            "location": "abandoned_camp",
+            "disposition": "hostile",
+            "hp": 50, "max_hp": 50,
+            "attack": 11, "defense": 6,
+            "xp_reward": 25,
+            "loot_table": json.dumps([
+                {"item_id": "torn_cloth", "chance": 0.5, "qty": 1},
+                {"item_id": "old_coin", "chance": 0.4, "qty": 2},
+            ]),
+        },
+        {
+            "creature_id": "portal_phantom",
+            "name": "Фантом портала",
+            "description": "Существо из вихря порталов. Оно существует во всех мирах одновременно.",
+            "location": "portal_nexus",
+            "disposition": "hostile",
+            "hp": 160, "max_hp": 160,
+            "attack": 24, "defense": 18,
+            "xp_reward": 90,
+            "loot_table": json.dumps([
+                {"item_id": "void_crystal", "chance": 0.3, "qty": 1},
+                {"item_id": "portal_shard", "chance": 0.4, "qty": 1},
+                {"item_id": "legendary_essence", "chance": 0.08, "qty": 1},
+            ]),
+        },
     ]
 
     for c in creatures:
@@ -682,6 +817,19 @@ async def seed():
         {"item_id": "enchanted_compass", "name": "Заколдованный компас", "description": "Стрелка указывает не на север, а на то, что ты ищешь.", "rarity": "epic", "is_usable": 0},
         {"item_id": "soul_bottle", "name": "Бутылка с душой", "description": "Внутри — чей-то крик. Закрой горлышко.", "rarity": "legendary", "is_usable": 1, "use_effect": json.dumps({"heal": 80})},
         {"item_id": "gold_coin", "name": "Золотая монета", "description": "Валюта теневого рынка. Блестит даже в темноте.", "rarity": "common", "is_usable": 0},
+        # ═══ НОВЫЕ ПРЕДМЕТЫ v2 ═══
+        {"item_id": "raw_crystal", "name": "Необработанный кристалл", "description": "Грубый кристалл из шахты. Нужна огранка.", "rarity": "common", "is_usable": 0},
+        {"item_id": "mine_pickaxe", "name": "Шахтёрская кирка", "description": "Ржавая, но крепкая. Открывает новые проходы.", "rarity": "rare", "is_usable": 1, "use_effect": json.dumps({"xp": 20, "gold": 15})},
+        {"item_id": "crystal_thread", "name": "Кристальная нить", "description": "Прочнее стали. Светится в темноте.", "rarity": "rare", "is_usable": 0},
+        {"item_id": "spider_venom", "name": "Яд паука", "description": "Светящаяся жидкость. Её можно намазать на оружие.", "rarity": "rare", "is_usable": 1, "use_effect": json.dumps({"damage": 25})},
+        {"item_id": "grove_essence", "name": "Суть рощи", "description": "Жидкий свет. Восстанавливает и очищает.", "rarity": "epic", "is_usable": 1, "use_effect": json.dumps({"heal": 60, "xp": 25})},
+        {"item_id": "light_leaf", "name": "Светящийся лист", "description": "Лист из зачарованной рощи. Он永遠 не вянет.", "rarity": "common", "is_usable": 1, "use_effect": json.dumps({"heal": 20})},
+        {"item_id": "warden_heart", "name": "Сердце стража", "description": "Каменное сердце, пульсирующее зелёным. Оно помнит века.", "rarity": "epic", "is_usable": 0},
+        {"item_id": "mossy_stone", "name": "Мшистый камень", "description": "Камень, покрытый древним мхом. Он тёплый.", "rarity": "common", "is_usable": 0},
+        {"item_id": "torn_cloth", "name": "Рваная ткань", "description": "Кусок ткани из лагеря. На нём — следы когтей.", "rarity": "common", "is_usable": 0},
+        {"item_id": "portal_shard", "name": "Осколок портала", "description": "Фрагмент пространственного разлома. Он искрится.", "rarity": "legendary", "is_usable": 0},
+        {"item_id": "crystal_blade", "description": "Клинок из кристалла. Он режет сам.", "name": "Кристальный клинок", "rarity": "epic", "is_usable": 1, "use_effect": json.dumps({"damage": 35})},
+        {"item_id": "grove_amulet", "name": "Амулет рощи", "description": "Амулет из светящегося дерева. Защищает от тьмы.", "rarity": "epic", "is_usable": 1, "use_effect": json.dumps({"heal": 70})},
     ]
 
     for item in items:
@@ -935,6 +1083,104 @@ async def seed():
             "rewards": json.dumps({"xp": 50, "memories": 5, "karma": 2, "gold": 25, "items": [{"id": "gold_coin", "qty": 8}]}),
             "is_active": 1, "is_repeating": 1,
         },
+        # ═══ НОВЫЕ КВЕСТЫ v2 ═══
+        {
+            "quest_id": "q_mine1",
+            "name": "Шахтёрские тайны",
+            "description": "Шахта полна кристаллов. Но и опасностей тоже.",
+            "giver": "unknown",
+            "location": "abandoned_mine",
+            "objectives": json.dumps([
+                {"id": "kill_crawler", "type": "kill", "creature": "mine_crawler", "target": 2, "description": "Убить 2 шахтёров-ползунов"},
+                {"id": "collect_crystal", "type": "collect", "item": "raw_crystal", "target": 3, "description": "Собрать 3 необработанных кристалла"}
+            ]),
+            "rewards": json.dumps({"xp": 55, "memories": 6, "karma": 3, "gold": 20, "items": [{"id": "mine_pickaxe", "qty": 1}]}),
+            "is_active": 1, "is_repeating": 0,
+        },
+        {
+            "quest_id": "q_mine2",
+            "name": "Глубже",
+            "description": "Пауки заполонили шахту. Уничтожь их.",
+            "giver": "unknown",
+            "location": "abandoned_mine",
+            "objectives": json.dumps([
+                {"id": "kill_spider", "type": "kill", "creature": "crystal_spider", "target": 3, "description": "Убить 3 кристальных пауков"}
+            ]),
+            "rewards": json.dumps({"xp": 45, "memories": 4, "karma": 2, "gold": 15, "items": [{"id": "crystal_thread", "qty": 2}]}),
+            "is_active": 1, "is_repeating": 1,
+        },
+        {
+            "quest_id": "q_grove1",
+            "name": "Голос рощи",
+            "description": "Духи рощи просят защиты. Страж стал враждебным.",
+            "giver": "grove_sprite",
+            "location": "enchanted_grove",
+            "objectives": json.dumps([
+                {"id": "kill_warden", "type": "kill", "creature": "ancient_warden", "target": 1, "description": "Победить древнего стража"}
+            ]),
+            "rewards": json.dumps({"xp": 70, "memories": 8, "karma": 6, "gold": 30, "items": [{"id": "warden_heart", "qty": 1}]}),
+            "is_active": 1, "is_repeating": 0,
+        },
+        {
+            "quest_id": "q_grove2",
+            "name": "Свет рощи",
+            "description": "Собери светящиеся листья для амулета.",
+            "giver": "grove_sprite",
+            "location": "enchanted_grove",
+            "objectives": json.dumps([
+                {"id": "collect_leaf", "type": "collect", "item": "light_leaf", "target": 5, "description": "Собрать 5 светящихся листьев"}
+            ]),
+            "rewards": json.dumps({"xp": 40, "memories": 5, "karma": 4, "gold": 15, "items": [{"id": "grove_amulet", "qty": 1}]}),
+            "is_active": 1, "is_repeating": 0,
+        },
+        {
+            "quest_id": "q_camp1",
+            "name": "Что случилось в лагере",
+            "description": "Лагерь покинут. Но кто-то был здесь недавно.",
+            "giver": "unknown",
+            "location": "abandoned_camp",
+            "objectives": json.dumps([
+                {"id": "kill_stalker", "type": "kill", "creature": "camp_stalker", "target": 2, "description": "Убить 2 лагерных воров"}
+            ]),
+            "rewards": json.dumps({"xp": 35, "memories": 4, "karma": 2, "gold": 12}),
+            "is_active": 1, "is_repeating": 1,
+        },
+        {
+            "quest_id": "q_camp2",
+            "name": "Следы",
+            "description": "Найди зацепки. Кто был в лагере?",
+            "giver": "unknown",
+            "location": "abandoned_camp",
+            "objectives": json.dumps([
+                {"id": "visit_camp", "type": "visit", "location": "abandoned_camp", "target": 1, "description": "Осмотреть лагерь"}
+            ]),
+            "rewards": json.dumps({"xp": 20, "memories": 5, "gold": 8, "items": [{"id": "mysterious_map", "qty": 1}]}),
+            "is_active": 1, "is_repeating": 0,
+        },
+        {
+            "quest_id": "q_portal1",
+            "name": "Узел миров",
+            "description": "Порталы ведут в другие миры. Но фантомы не пускают.",
+            "giver": "unknown",
+            "location": "portal_nexus",
+            "objectives": json.dumps([
+                {"id": "kill_phantom", "type": "kill", "creature": "portal_phantom", "target": 1, "description": "Победить фантома портала"}
+            ]),
+            "rewards": json.dumps({"xp": 100, "memories": 12, "karma": 8, "gold": 50, "items": [{"id": "portal_shard", "qty": 1}]}),
+            "is_active": 1, "is_repeating": 0,
+        },
+        {
+            "quest_id": "q_craft1",
+            "name": "Мастер крафта",
+            "description": "Научись создавать предметы. Скрафти что-нибудь.",
+            "giver": "unknown",
+            "location": "crystal_cave",
+            "objectives": json.dumps([
+                {"id": "craft_any", "type": "craft", "recipe": "any", "target": 1, "description": "Скрафти любой предмет"}
+            ]),
+            "rewards": json.dumps({"xp": 30, "memories": 3, "gold": 10}),
+            "is_active": 1, "is_repeating": 0,
+        },
     ]
 
     for q in quests:
@@ -1022,6 +1268,15 @@ async def seed():
         ("ash_fields", "grave_dust", 1),
         ("shadow_market", "gold_coin", 3),
         ("shadow_market", "old_coin", 2),
+        # ═══ НОВЫЕ ПРЕДМЕТЫ НА ЗЕМЛЕ v2 ═══
+        ("abandoned_mine", "raw_crystal", 3),
+        ("abandoned_mine", "obsidian_shard", 1),
+        ("enchanted_grove", "light_leaf", 2),
+        ("enchanted_grove", "grove_essence", 1),
+        ("abandoned_camp", "old_coin", 2),
+        ("abandoned_camp", "healing_herb", 1),
+        ("portal_nexus", "portal_shard", 1),
+        ("portal_nexus", "void_crystal", 1),
     ]
 
     for loc_id, item_id, qty in ground:
@@ -1031,8 +1286,110 @@ async def seed():
         )
 
     await db.commit()
-
     await seed_shop()
+
+    # ══════════════════════════════════════════════
+    #  РЕЦЕПТЫ КРАФТА
+    # ══════════════════════════════════════════════
+
+    crafting_recipes = [
+        {
+            "recipe_id": "craft_crystal_blade",
+            "name": "Кристальный клинок",
+            "description": "Слей кристаллы в острый клинок.",
+            "result_item": "crystal_blade",
+            "result_qty": 1,
+            "ingredients": json.dumps([
+                {"item_id": "raw_crystal", "qty": 3},
+                {"item_id": "crystal_thread", "qty": 2},
+            ]),
+            "required_location": "crystal_cave",
+            "required_level": 3,
+            "xp_reward": 30,
+        },
+        {
+            "recipe_id": "craft_grove_amulet",
+            "name": "Амулет рощи",
+            "description": "Сплети листья и суть рощи в амулет.",
+            "result_item": "grove_amulet",
+            "result_qty": 1,
+            "ingredients": json.dumps([
+                {"item_id": "light_leaf", "qty": 4},
+                {"item_id": "grove_essence", "qty": 1},
+            ]),
+            "required_location": "enchanted_grove",
+            "required_level": 5,
+            "xp_reward": 40,
+        },
+        {
+            "recipe_id": "craft_witch_brew",
+            "name": "Зелье ведьмы",
+            "description": "Свари зелье из болотных ингредиентов.",
+            "result_item": "witch_brew",
+            "result_qty": 2,
+            "ingredients": json.dumps([
+                {"item_id": "swamp_root", "qty": 3},
+                {"item_id": "grave_dust", "qty": 1},
+            ]),
+            "required_location": "witch_swamp",
+            "required_level": 2,
+            "xp_reward": 20,
+        },
+        {
+            "recipe_id": "craft_enchanted_compass",
+            "name": "Заколдованный компас",
+            "description": "Направь эхо на старую стрелку.",
+            "result_item": "enchanted_compass",
+            "result_qty": 1,
+            "ingredients": json.dumps([
+                {"item_id": "echo_crystal", "qty": 1},
+                {"item_id": "old_coin", "qty": 2},
+            ]),
+            "required_location": "library_of_echoes",
+            "required_level": 4,
+            "xp_reward": 35,
+        },
+        {
+            "recipe_id": "craft_soul_bottle",
+            "name": "Бутылка с душой",
+            "description": "Запри суть призрака в бутылку.",
+            "result_item": "soul_bottle",
+            "result_qty": 1,
+            "ingredients": json.dumps([
+                {"item_id": "ghost_essence", "qty": 2},
+                {"item_id": "dark_shard", "qty": 1},
+            ]),
+            "required_location": "dark_harbour",
+            "required_level": 8,
+            "xp_reward": 50,
+        },
+        {
+            "recipe_id": "craft_obsidian_armour",
+            "name": "Доспех из обсидиана",
+            "description": "Склей осколки обсидиана в броню.",
+            "result_item": "rusted_armour",
+            "result_qty": 1,
+            "ingredients": json.dumps([
+                {"item_id": "obsidian_shard", "qty": 4},
+                {"item_id": "tentacle_strip", "qty": 2},
+            ]),
+            "required_location": "obsidian_tower",
+            "required_level": 5,
+            "xp_reward": 35,
+        },
+    ]
+
+    for recipe in crafting_recipes:
+        await db.execute(
+            """INSERT OR REPLACE INTO crafting_recipes
+               (recipe_id, name, description, result_item, result_qty, ingredients, required_location, required_level, xp_reward)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (recipe["recipe_id"], recipe["name"], recipe["description"],
+             recipe["result_item"], recipe["result_qty"], recipe["ingredients"],
+             recipe["required_location"], recipe["required_level"], recipe["xp_reward"])
+        )
+    await db.commit()
+
     print("✅ Контент MIST загружен!")
     print(f"   📍 Локаций: {len(locations)}")
     print(f"   🐾 Существ: {len(creatures)}")
@@ -1040,6 +1397,7 @@ async def seed():
     print(f"   📜 Квестов: {len(quests)}")
     print(f"   🔮 Секретов: {len(secrets)}")
     print(f"   📦 Предметов на земле: {len(ground)}")
+    print(f"   ⚒️ Рецептов крафта: {len(crafting_recipes)}")
 
 
 if __name__ == "__main__":

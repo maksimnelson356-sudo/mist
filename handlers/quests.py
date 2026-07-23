@@ -23,6 +23,8 @@ async def cb_quests(callback: CallbackQuery):
         "shadow_market": "Теневой рынок", "heart_of_mist": "Сердце MIST",
         "witch_swamp": "Топи ведьмы", "forgotten_graveyard": "Забытое кладбище",
         "dark_harbour": "Тёмная гавань", "ash_fields": "Пепельные поля",
+        "abandoned_mine": "Заброшенная шахта", "enchanted_grove": "Зачарованная роща",
+        "abandoned_camp": "Покинутый лагерь", "portal_nexus": "Узел порталов",
     }
 
     active_ids = {q["quest_id"] for q in active_quests if q["status"] == "active"}

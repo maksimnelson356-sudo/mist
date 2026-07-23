@@ -191,7 +191,9 @@ def _is_nearby(loc1: str, loc2: str) -> bool:
         "market_square": ["fishing_village", "temple_of_shadows", "shadow_market"],
         "shadow_market": ["market_square", "temple_of_shadows"],
         "temple_of_shadows": ["market_square", "void_gate", "shadow_market"],
-        "riverbank": ["dark_forest", "fishing_village", "underwater_cave", "dark_harbour"],
+        "riverbank": ["dark_forest", "fishing_village", "underwater_cave", "dark_harbour", "abandoned_camp"],
         "dark_harbour": ["dark_forest", "forgotten_graveyard", "riverbank"],
+        "abandoned_mine": ["crystal_cave", "ash_fields"],
+        "crystal_cave": ["ancient_ruins", "underwater_cave", "ash_fields", "abandoned_mine"],
     }
     return loc2 in connections.get(loc1, []) or loc1 in connections.get(loc2, [])

@@ -1034,6 +1034,12 @@ async def seed_shop():
         ("temple_of_shadows", "dark_shard", 20, -1, 3, -5),
         ("temple_of_shadows", "bloodstone", 30, 5, 5, -3),
         ("temple_of_shadows", "arcane_dust", 8, -1, 1, 0),
+        # ═══ ШАХТА — кристаллы ═══
+        ("abandoned_mine", "raw_crystal", 10, -1, 2, 0),
+        ("abandoned_mine", "crystal_thread", 22, 3, 4, 0),
+        ("abandoned_mine", "spider_venom", 18, 4, 3, 0),
+        # ═══ РЫБАЦКАЯ ДЕРЕВНЯ — обновление ═══
+        ("fishing_village", "light_leaf", 12, -1, 2, 0),
     ]
 
     for shop_id, item_id, price, stock, req_level, req_karma in shop_items_data:
@@ -1205,3 +1211,403 @@ async def get_pvp_stats(user_id: int) -> dict:
         "total_fights": total_pvp_fights,
         "winrate": round(user["pvp_wins"] / max(1, user["pvp_wins"] + user["pvp_losses"]) * 100, 1),
     }
+
+
+# ──────────────────────────────────────────────
+#  Крафт
+# ──────────────────────────────────────────────
+
+async def get_crafting_recipes(location: str = None) -> list:
+    db = await get_db()
+    if location:
+        cursor = await db.execute(
+            "SELECT * FROM crafting_recipes WHERE is_active = 1 AND (required_location = ? OR required_location IS NULL)",
+            (location,)
+        )
+    else:
+        cursor = await db.execute("SELECT * FROM crafting_recipes WHERE is_active = 1")
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_crafting_recipe(recipe_id: str) -> dict:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM crafting_recipes WHERE recipe_id = ?", (recipe_id,))
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def craft_item(user_id: int, recipe_id: str) -> dict:
+    recipe = await get_crafting_recipe(recipe_id)
+    if not recipe:
+        return {"success": False, "message": "Рецепт не найден."}
+
+    user = await get_or_create_user(user_id)
+    if user["level"] < recipe["required_level"]:
+        return {"success": False, "message": f"Нужен уровень {recipe['required_level']}."}
+
+    if recipe["required_location"] and user["current_location"] != recipe["required_location"]:
+        loc = await get_location(recipe["required_location"])
+        loc_name = loc["name"] if loc else recipe["required_location"]
+        return {"success": False, "message": f"Крафтить можно только в «{loc_name}»."}
+
+    ingredients = json.loads(recipe["ingredients"]) if isinstance(recipe["ingredients"], str) else recipe["ingredients"]
+    for ing in ingredients:
+        has = await has_item(user_id, ing["item_id"], ing.get("qty", 1))
+        if not has:
+            t = await get_item_template(ing["item_id"])
+            name = t["name"] if t else ing["item_id"]
+            return {"success": False, "message": f"Не хватает: {name} x{ing.get('qty', 1)}"}
+
+    for ing in ingredients:
+        await remove_item(user_id, ing["item_id"], ing.get("qty", 1))
+
+    await add_item(user_id, recipe["result_item"], recipe["result_qty"])
+
+    new_xp = user["xp"] + recipe["xp_reward"]
+    new_level = user["level"]
+    if new_xp >= new_level * 100:
+        new_xp -= new_level * 100
+        new_level += 1
+    await update_user(user_id, xp=new_xp, level=new_level)
+
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT times_crafted FROM user_crafting WHERE user_id = ? AND recipe_id = ?",
+        (user_id, recipe_id)
+    )
+    existing = await cursor.fetchone()
+    if existing:
+        await db.execute(
+            "UPDATE user_crafting SET times_crafted = times_crafted + 1 WHERE user_id = ? AND recipe_id = ?",
+            (user_id, recipe_id)
+        )
+    else:
+        await db.execute(
+            "INSERT INTO user_crafting (user_id, recipe_id) VALUES (?, ?)",
+            (user_id, recipe_id)
+        )
+    await db.commit()
+
+    t = await get_item_template(recipe["result_item"])
+    result_name = t["name"] if t else recipe["result_item"]
+    await _log_action(user_id, "craft", {"recipe_id": recipe_id, "item": recipe["result_item"]})
+
+    return {
+        "success": True,
+        "message": f"⚒️ Скрафтил «{result_name}» x{recipe['result_qty']}\n⭐ +{recipe['xp_reward']} XP"
+    }
+
+
+async def has_item(user_id: int, item_id: str, qty: int = 1) -> bool:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?",
+        (user_id, item_id)
+    )
+    row = await cursor.fetchone()
+    return row and row["quantity"] >= qty
+
+
+# ──────────────────────────────────────────────
+#  Гильдии
+# ──────────────────────────────────────────────
+
+async def create_guild(user_id: int, name: str, description: str = "", motto: str = "") -> dict:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+    if user["gold"] < 50:
+        return {"success": False, "message": "Нужно 50 золота для создания гильдии."}
+
+    cursor = await db.execute("SELECT user_id FROM guild_members WHERE user_id = ?", (user_id,))
+    if await cursor.fetchone():
+        return {"success": False, "message": "Ты уже в гильдии. Покинь её сначала."}
+
+    guild_id = f"g_{user_id}_{int(datetime.now().timestamp())}"
+    await db.execute(
+        "INSERT INTO guilds (guild_id, name, description, leader_id, motto) VALUES (?, ?, ?, ?, ?)",
+        (guild_id, name, description, user_id, motto)
+    )
+    await db.execute(
+        "INSERT INTO guild_members (guild_id, user_id, role) VALUES (?, ?, 'leader')",
+        (guild_id, user_id)
+    )
+    await update_user(user_id, gold=user["gold"] - 50)
+    await db.commit()
+    await _log_action(user_id, "guild_create", {"guild_id": guild_id, "name": name})
+
+    return {"success": True, "message": f"🏰 Гильдия «{name}» создана!", "guild_id": guild_id}
+
+
+async def join_guild(user_id: int, guild_id: str) -> dict:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+
+    cursor = await db.execute("SELECT user_id FROM guild_members WHERE user_id = ?", (user_id,))
+    if await cursor.fetchone():
+        return {"success": False, "message": "Ты уже в гильдии."}
+
+    cursor = await db.execute("SELECT * FROM guilds WHERE guild_id = ?", (guild_id,))
+    guild = await cursor.fetchone()
+    if not guild:
+        return {"success": False, "message": "Гильдия не найдена."}
+
+    await db.execute(
+        "INSERT INTO guild_members (guild_id, user_id) VALUES (?, ?)",
+        (guild_id, user_id)
+    )
+    await db.commit()
+    await _log_action(user_id, "guild_join", {"guild_id": guild_id})
+
+    return {"success": True, "message": f"🏰 Ты вступил в «{guild['name']}»!"}
+
+
+async def leave_guild(user_id: int) -> dict:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT gm.guild_id, gm.role, g.name FROM guild_members gm JOIN guilds g ON gm.guild_id = g.guild_id WHERE gm.user_id = ?",
+        (user_id,)
+    )
+    member = await cursor.fetchone()
+    if not member:
+        return {"success": False, "message": "Ты не в гильдии."}
+
+    if member["role"] == "leader":
+        cursor2 = await db.execute(
+            "SELECT user_id FROM guild_members WHERE guild_id = ? AND user_id != ? LIMIT 1",
+            (member["guild_id"], user_id)
+        )
+        successor = await cursor2.fetchone()
+        if successor:
+            await db.execute(
+                "UPDATE guild_members SET role = 'leader' WHERE guild_id = ? AND user_id = ?",
+                (member["guild_id"], successor["user_id"])
+            )
+        else:
+            await db.execute("DELETE FROM guilds WHERE guild_id = ?", (member["guild_id"],))
+
+    await db.execute("DELETE FROM guild_members WHERE guild_id = ? AND user_id = ?", (member["guild_id"], user_id))
+    await db.commit()
+    await _log_action(user_id, "guild_leave", {"guild_id": member["guild_id"]})
+
+    return {"success": True, "message": f"Ты покинул «{member['name']}»."}
+
+
+async def get_user_guild(user_id: int) -> dict | None:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT g.*, gm.role, gm.contribution
+           FROM guild_members gm
+           JOIN guilds g ON gm.guild_id = g.guild_id
+           WHERE gm.user_id = ?""",
+        (user_id,)
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_guild_members(guild_id: str) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT gm.*, u.display_name, u.level, u.pvp_rating
+           FROM guild_members gm
+           LEFT JOIN users u ON gm.user_id = u.user_id
+           WHERE gm.guild_id = ?
+           ORDER BY gm.role DESC, gm.contribution DESC""",
+        (guild_id,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_all_guilds(limit: int = 10) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT g.*, 
+           (SELECT COUNT(*) FROM guild_members WHERE guild_id = g.guild_id) as member_count
+           FROM guilds g
+           ORDER BY g.level DESC, g.xp DESC
+           LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def guild_donate(user_id: int, amount: int) -> dict:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+    guild = await get_user_guild(user_id)
+    if not guild:
+        return {"success": False, "message": "Ты не в гильдии."}
+    if user["gold"] < amount:
+        return {"success": False, "message": f"У тебя только {user['gold']} золота."}
+    if amount <= 0:
+        return {"success": False, "message": "Сумма должна быть больше 0."}
+
+    await update_user(user_id, gold=user["gold"] - amount)
+    await db.execute(
+        "UPDATE guilds SET gold = gold + ? WHERE guild_id = ?",
+        (amount, guild["guild_id"])
+    )
+    await db.execute(
+        "UPDATE guild_members SET contribution = contribution + ? WHERE guild_id = ? AND user_id = ?",
+        (amount, guild["guild_id"], user_id)
+    )
+    guild_xp = amount // 2
+    await db.execute(
+        "UPDATE guilds SET xp = xp + ? WHERE guild_id = ?",
+        (guild_xp, guild["guild_id"])
+    )
+    await db.commit()
+    await _log_action(user_id, "guild_donate", {"amount": amount, "guild_id": guild["guild_id"]})
+
+    return {"success": True, "message": f"💰 Пожертвовал {amount} 🪙 в казну «{guild['name']}»"}
+
+
+async def get_nearby_players(user_id: int) -> list:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+    cursor = await db.execute(
+        "SELECT user_id, display_name, level, hp, max_hp FROM users WHERE current_location = ? AND user_id != ? AND is_alive = 1",
+        (user["current_location"], user_id)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+# ──────────────────────────────────────────────
+#  Трейдинг
+# ──────────────────────────────────────────────
+
+async def create_trade(from_user: int, to_user: int, items_offered: list, gold_offered: int,
+                       items_wanted: list, gold_wanted: int) -> dict:
+    if from_user == to_user:
+        return {"success": False, "message": "Нельзя торговать с самим собой."}
+
+    db = await get_db()
+    user1 = await get_or_create_user(from_user)
+    user2 = await get_or_create_user(to_user)
+
+    if user1["current_location"] != user2["current_location"]:
+        return {"success": False, "message": "Вы должны быть в одной локации."}
+
+    if user1["gold"] < gold_offered:
+        return {"success": False, "message": "У тебя недостаточно золота."}
+
+    for item in items_offered:
+        has = await has_item(from_user, item["item_id"], item.get("qty", 1))
+        if not has:
+            return {"success": False, "message": f"У тебя нет {item['item_id']}."}
+
+    cursor = await db.execute(
+        """SELECT * FROM player_trades
+           WHERE from_user = ? AND status = 'pending'""",
+        (from_user,)
+    )
+    if await cursor.fetchone():
+        return {"success": False, "message": "У тебя уже есть активный трейд."}
+
+    await db.execute(
+        """INSERT INTO player_trades (from_user, to_user, items_offered, gold_offered, items_wanted, gold_wanted)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (from_user, to_user, json.dumps(items_offered), gold_offered,
+         json.dumps(items_wanted), gold_wanted)
+    )
+    await db.commit()
+    await _log_action(from_user, "trade_create", {"to_user": to_user, "gold_offered": gold_offered})
+
+    return {"success": True, "message": "📨 Предложение трейда отправлено!"}
+
+
+async def accept_trade(trade_id: int, user_id: int) -> dict:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM player_trades WHERE id = ? AND status = 'pending'", (trade_id,))
+    trade = await cursor.fetchone()
+    if not trade:
+        return {"success": False, "message": "Трейд не найден или уже закрыт."}
+
+    trade = dict(trade)
+    if trade["to_user"] != user_id:
+        return {"success": False, "message": "Этот трейд не для тебя."}
+
+    user1 = await get_or_create_user(trade["from_user"])
+    user2 = await get_or_create_user(trade["to_user"])
+
+    if user1["current_location"] != user2["current_location"]:
+        return {"success": False, "message": "Вы разошлись по локациям."}
+
+    if user1["gold"] < trade["gold_offered"]:
+        return {"success": False, "message": "У отправителя недостаточно золота."}
+
+    items_offered = json.loads(trade["items_offered"]) if isinstance(trade["items_offered"], str) else trade["items_offered"]
+    for item in items_offered:
+        has = await has_item(trade["from_user"], item["item_id"], item.get("qty", 1))
+        if not has:
+            return {"success": False, "message": f"У отправителя нет {item['item_id']}."}
+
+    if user2["gold"] < trade["gold_wanted"]:
+        return {"success": False, "message": "У тебя недостаточно золота."}
+
+    items_wanted = json.loads(trade["items_wanted"]) if isinstance(trade["items_wanted"], str) else trade["items_wanted"]
+    for item in items_wanted:
+        has = await has_item(trade["to_user"], item["item_id"], item.get("qty", 1))
+        if not has:
+            return {"success": False, "message": f"У тебя нет {item['item_id']}."}
+
+    if trade["gold_offered"] > 0:
+        await update_user(trade["from_user"], gold=user1["gold"] - trade["gold_offered"])
+        user2_fresh = await get_or_create_user(trade["to_user"])
+        await update_user(trade["to_user"], gold=user2_fresh["gold"] + trade["gold_offered"])
+
+    if trade["gold_wanted"] > 0:
+        user2_fresh2 = await get_or_create_user(trade["to_user"])
+        await update_user(trade["to_user"], gold=user2_fresh2["gold"] - trade["gold_wanted"])
+        user1_fresh = await get_or_create_user(trade["from_user"])
+        await update_user(trade["from_user"], gold=user1_fresh["gold"] + trade["gold_wanted"])
+
+    for item in items_offered:
+        await remove_item(trade["from_user"], item["item_id"], item.get("qty", 1))
+        await add_item(trade["to_user"], item["item_id"], item.get("qty", 1))
+
+    for item in items_wanted:
+        await remove_item(trade["to_user"], item["item_id"], item.get("qty", 1))
+        await add_item(trade["from_user"], item["item_id"], item.get("qty", 1))
+
+    await db.execute(
+        "UPDATE player_trades SET status = 'completed', completed_at = datetime('now') WHERE id = ?",
+        (trade_id,)
+    )
+    await db.commit()
+    await _log_action(user_id, "trade_accept", {"trade_id": trade_id})
+
+    return {"success": True, "message": "🤝 Трейд завершён!"}
+
+
+async def decline_trade(trade_id: int, user_id: int) -> dict:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM player_trades WHERE id = ? AND status = 'pending'", (trade_id,))
+    trade = await cursor.fetchone()
+    if not trade:
+        return {"success": False, "message": "Трейд не найден."}
+    trade = dict(trade)
+    if trade["to_user"] != user_id and trade["from_user"] != user_id:
+        return {"success": False, "message": "Не твой трейд."}
+
+    await db.execute("UPDATE player_trades SET status = 'declined' WHERE id = ?", (trade_id,))
+    await db.commit()
+    return {"success": True, "message": "❌ Трейд отклонён."}
+
+
+async def get_pending_trades(user_id: int) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT pt.*, u.display_name as from_name
+           FROM player_trades pt
+           JOIN users u ON pt.from_user = u.user_id
+           WHERE pt.to_user = ? AND pt.status = 'pending'
+           ORDER BY pt.created_at DESC""",
+        (user_id,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
