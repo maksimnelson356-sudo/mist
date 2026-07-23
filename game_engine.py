@@ -557,8 +557,14 @@ async def accept_quest(user_id: int, quest_id: str) -> dict:
         (user_id, quest_id)
     )
     completed = await cursor.fetchone()
-    if completed and not quest["is_repeating"]:
-        return {"success": False, "message": "Ты уже выполнил этот квест."}
+    if completed:
+        if not quest["is_repeating"]:
+            return {"success": False, "message": "Ты уже выполнил этот квест."}
+        await db.execute(
+            "DELETE FROM user_quests WHERE user_id = ? AND quest_id = ?",
+            (user_id, quest_id)
+        )
+        await db.commit()
 
     objectives = json.loads(quest["objectives"]) if isinstance(quest["objectives"], str) else quest["objectives"]
     progress = {}
@@ -779,7 +785,7 @@ async def use_item(user_id: int, item_id: str) -> dict:
         messages.append("💡 Жемчужина светится тёплым светом. Ты видишь то, что было скрыто.")
 
     if "reveal_secret" in effect:
-        messages.append("🔮 Кристалл шепчет тебе тайну. Ты чувствуешь, как记忆 проникают в сознание.")
+        messages.append("🔮 Кристалл шепчет тебе тайну. Ты чувствуешь, как воспоминания проникают в сознание.")
         await _log_action(user_id, "crystal_reveal", {"item_id": item_id})
 
     if "vision" in effect:
@@ -1114,8 +1120,8 @@ async def pvp_battle(user_id: int, target_id: int) -> dict:
         new_xp = user["xp"] + result["xp_gained"]
         new_level = user["level"]
         if new_xp >= new_level * 100:
-            new_level += 1
             new_xp -= new_level * 100
+            new_level += 1
 
         await update_user(user_id,
             xp=new_xp, level=new_level,

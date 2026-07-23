@@ -21,6 +21,8 @@ async def cb_quests(callback: CallbackQuery):
         "library_of_echoes": "Библиотека эхов", "obsidian_tower": "Обсидиановая башня",
         "tower_summit": "Вершина башни", "blood_meadow": "Кровавый луг",
         "shadow_market": "Теневой рынок", "heart_of_mist": "Сердце MIST",
+        "witch_swamp": "Топи ведьмы", "forgotten_graveyard": "Забытое кладбище",
+        "dark_harbour": "Тёмная гавань", "ash_fields": "Пепельные поля",
     }
 
     active_ids = {q["quest_id"] for q in active_quests if q["status"] == "active"}
@@ -73,27 +75,7 @@ async def cb_accept(callback: CallbackQuery):
     quest_id = callback.data.split(":")[1]
     result = await ge.accept_quest(callback.from_user.id, quest_id)
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
-        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
-    ])
-
-    if result["success"] and result.get("completed") and result.get("rewards"):
-        rewards = result["rewards"]
-        text = result["message"] + "\n\n<b>Награды:</b>\n"
-        if "xp" in rewards:
-            text += f"  ⭐ {rewards['xp']} XP\n"
-        if "gold" in rewards:
-            text += f"  🪙 {rewards['gold']} золота\n"
-        if "memories" in rewards:
-            text += f"  🎒 {rewards['memories']} воспоминаний\n"
-        if "karma" in rewards:
-            text += f"  ⚖️ {rewards['karma']} карма\n"
-        if "items" in rewards:
-            for item in rewards["items"]:
-                text += f"  🏺 {item['id']} x{item.get('qty', 1)}\n"
-    else:
-        text = result["message"]
+    text = result["message"]
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],

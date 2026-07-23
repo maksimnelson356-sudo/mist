@@ -90,7 +90,7 @@ async def cb_shop_open(callback: CallbackQuery):
             text=f"🛒 {item['name']} — {item['price']} 🪙",
             callback_data=f"shop_buy_item:{shop_id}:{item['item_id']}"
         )])
-    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="shop")])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data=f"shop_open:{shop_id}")])
     buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -151,7 +151,7 @@ async def cb_shop_sell(callback: CallbackQuery):
             callback_data=f"shop_sell_item:{item['item_id']}"
         )])
 
-    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="shop")])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="shop_sell")])
     buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -186,10 +186,12 @@ async def cb_shop_balance(callback: CallbackQuery):
 
 
 def _is_nearby(loc1: str, loc2: str) -> bool:
-    direct_connections = {
+    connections = {
         "fishing_village": ["riverbank", "market_square"],
-        "market_square": ["fishing_village", "temple_of_shadows"],
+        "market_square": ["fishing_village", "temple_of_shadows", "shadow_market"],
         "shadow_market": ["market_square", "temple_of_shadows"],
         "temple_of_shadows": ["market_square", "void_gate", "shadow_market"],
+        "riverbank": ["dark_forest", "fishing_village", "underwater_cave", "dark_harbour"],
+        "dark_harbour": ["dark_forest", "forgotten_graveyard", "riverbank"],
     }
-    return loc2 in direct_connections.get(loc1, [])
+    return loc2 in connections.get(loc1, []) or loc1 in connections.get(loc2, [])

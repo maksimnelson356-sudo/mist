@@ -223,6 +223,12 @@ async def cb_main_menu(callback: CallbackQuery):
 @router.callback_query(F.data == "look")
 async def cb_look(callback: CallbackQuery):
     user = await ge.get_or_create_user(callback.from_user.id)
+    if not user["is_alive"]:
+        await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
+        ]))
+        await callback.answer()
+        return
     loc = await ge.get_location(user["current_location"])
     creatures = await ge.get_creatures_at_location(user["current_location"])
     ground = await ge.get_ground_items(user["current_location"])
@@ -439,6 +445,13 @@ async def cb_locations(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("move:"))
 async def cb_move(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id)
+    if not user["is_alive"]:
+        await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
+        ]))
+        await callback.answer()
+        return
     target = callback.data.split(":")[1]
     result = await ge.move_user(callback.from_user.id, target)
 
@@ -496,6 +509,12 @@ async def cb_move(callback: CallbackQuery):
 @router.callback_query(F.data == "fight_menu")
 async def cb_fight_menu(callback: CallbackQuery):
     user = await ge.get_or_create_user(callback.from_user.id)
+    if not user["is_alive"]:
+        await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
+        ]))
+        await callback.answer()
+        return
     creatures = await ge.get_creatures_at_location(user["current_location"])
 
     hostile = [c for c in creatures if c["disposition"] in ("hostile", "neutral") and c["is_alive"]]
@@ -574,8 +593,16 @@ async def cb_attack(callback: CallbackQuery):
 
 @router.callback_query(F.data == "heal")
 async def cb_heal(callback: CallbackQuery):
-    # Сначала пробуем использовать предмет
     user = await ge.get_or_create_user(callback.from_user.id)
+
+    if not user["is_alive"]:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
+        ])
+        await callback.message.edit_text("💀 Ты мёртв. Очнись сначала.", reply_markup=kb)
+        await callback.answer()
+        return
+
     inv = await ge.get_inventory(callback.from_user.id)
 
     healing_items = [i for i in inv if i["item_id"] in ("healing_herb", "shadow_essence", "frozen_tear")]

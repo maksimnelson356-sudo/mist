@@ -701,6 +701,16 @@ async def seed():
     quests = [
         # Цепочка 1: Волки
         {
+            "quest_id": "q_start1",
+            "name": "Пробуждение",
+            "description": "Ты очнулся в тумане. Осмотрись и выживи.",
+            "giver": "unknown",
+            "location": "dark_forest",
+            "objectives": json.dumps([{"id": "visit_any", "type": "visit", "location": "riverbank", "target": 1, "description": "Доберись до берега реки"}]),
+            "rewards": json.dumps({"xp": 15, "memories": 2, "gold": 5}),
+            "is_active": 1, "is_repeating": 0,
+        },
+        {
             "quest_id": "q_wolf1",
             "name": "Волчий клык",
             "description": "Старый рыбак просит принести клык волка. Для ритуала.",
