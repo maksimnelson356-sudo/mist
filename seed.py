@@ -1,6 +1,8 @@
 import json
 import asyncio
 import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.path.insert(0, '.')
 
 from database.db import init_db, get_db
@@ -128,7 +130,7 @@ async def seed():
             "location_id": "white_forest",
             "name": "Белый лес",
             "description": (
-                "Деревья белые, как кости. Листьев нет. Снег —尽管是 лето. "
+                "Деревья белые, как кости. Листьев нет. Снег — зимой и летом. "
                 "Здесь холодно. Не от температуры — от чего-то внутри.\n\n"
                 "Это место помнит что-то страшное. И не хочет, чтобы ты знал что."
             ),
@@ -225,7 +227,7 @@ async def seed():
             "name": "Сердце MIST",
             "description": (
                 "Ты здесь. Ты всегда был здесь.\n\n"
-                "Туман отступает. На мгновение ты видишь —千亿个 лиц. "
+                "Туман отступает. На мгновение ты видишь — тысячи лиц. "
                 "Тех, кто был до тебя. Тех, кто будет после.\n\n"
                 "MIST — это не место. MIST — это ты."
             ),
@@ -239,8 +241,8 @@ async def seed():
         await db.execute(
             """INSERT OR REPLACE INTO locations (location_id, name, description, discovered, connections, is_secret, required_karma)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (loc["location_id"], loc["name"], loc["description"], loc["discovered"],
-             loc["connections"], loc["is_secret"], loc["required_karma"])
+            (loc["location_id"], loc["name"], loc["description"], loc.get("discovered", 0),
+             loc["connections"], loc.get("is_secret", 0), loc.get("required_karma", 0))
         )
 
     # ══════════════════════════════════════════════
