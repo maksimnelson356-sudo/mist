@@ -685,3 +685,218 @@ async def create_quest(quest_id: str, name: str, description: str, giver: str,
          json.dumps(objectives), json.dumps(rewards), active_int, repeat_int)
     )
     await db.commit()
+
+
+# ──────────────────────────────────────────────
+#  Предметы на земле
+# ──────────────────────────────────────────────
+
+async def get_ground_items(location_id: str) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT g.*, t.name, t.description, t.rarity
+           FROM ground_items g
+           LEFT JOIN item_templates t ON g.item_id = t.item_id
+           WHERE g.location_id = ?""",
+        (location_id,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def pick_up_item(user_id: int, location_id: str, item_id: str) -> dict:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT id, quantity FROM ground_items WHERE location_id = ? AND item_id = ?",
+        (location_id, item_id)
+    )
+    item = await cursor.fetchone()
+    if not item:
+        return {"success": False, "message": "Этого предмета здесь нет."}
+
+    await add_item(user_id, item_id, item["quantity"])
+    await db.execute("DELETE FROM ground_items WHERE id = ?", (item["id"],))
+    await db.commit()
+    await _log_action(user_id, "pickup", {"item_id": item_id, "qty": item["quantity"]})
+
+    t = await get_item_template(item_id)
+    name = t["name"] if t else item_id
+    return {"success": True, "message": f"🤲 Подобрал: {name} x{item['quantity']}"}
+
+
+async def get_item_template(item_id: str) -> dict:
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM item_templates WHERE item_id = ?", (item_id,))
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+# ──────────────────────────────────────────────
+#  Использование предметов
+# ──────────────────────────────────────────────
+
+async def use_item(user_id: int, item_id: str) -> dict:
+    db = await get_db()
+    t = await get_item_template(item_id)
+    if not t:
+        return {"success": False, "message": "Предмет не найден."}
+
+    cursor = await db.execute(
+        "SELECT id, quantity FROM inventory WHERE user_id = ? AND item_id = ?",
+        (user_id, item_id)
+    )
+    inv_item = await cursor.fetchone()
+    if not inv_item or inv_item["quantity"] < 1:
+        return {"success": False, "message": "У тебя нет этого предмета."}
+
+    if not t["is_usable"]:
+        return {"success": False, "message": f"«{t['name']}» нельзя использовать."}
+
+    effect = json.loads(t["use_effect"]) if isinstance(t["use_effect"], str) else t["use_effect"]
+    user = await get_or_create_user(user_id)
+    messages = []
+
+    if "heal" in effect:
+        heal = effect["heal"]
+        new_hp = min(user["max_hp"], user["hp"] + heal)
+        await update_user(user_id, hp=new_hp)
+        messages.append(f"💚 Восстановлено {new_hp - user['hp']} HP")
+
+    if "damage" in effect:
+        messages.append(f"⚔️ Нанесено {effect['damage']} урона (пока не работает в бою)")
+
+    if "xp" in effect:
+        new_xp = user["xp"] + effect["xp"]
+        new_level = user["level"]
+        if new_xp >= new_level * 100:
+            new_level += 1
+            new_xp -= new_level * 100
+        await update_user(user_id, xp=new_xp, level=new_level)
+        messages.append(f"⭐ +{effect['xp']} XP")
+
+    if "level_up" in effect:
+        await update_user(user_id, level=user["level"] + 1, max_hp=user["max_hp"] + 20, hp=user["max_hp"] + 20)
+        messages.append("⭐ Уровень Increased!")
+
+    await remove_item(user_id, item_id, 1)
+    await _log_action(user_id, "use_item", {"item_id": item_id, "effect": effect})
+
+    return {"success": True, "message": f"🧪 Использовал «{t['name']}»\n" + "\n".join(messages)}
+
+
+# ──────────────────────────────────────────────
+#  Исцеление / Отдых
+# ──────────────────────────────────────────────
+
+async def rest_heal(user_id: int) -> dict:
+    user = await get_or_create_user(user_id)
+    if user["hp"] >= user["max_hp"]:
+        return {"success": False, "message": "❤️ Твоё HP уже максимум."}
+
+    heal = min(25, user["max_hp"] - user["hp"])
+    await update_user(user_id, hp=user["hp"] + heal)
+    await _log_action(user_id, "rest", {"healed": heal})
+
+    return {"success": True, "message": f"💚 Ты отдохнул и восстановил {heal} HP\n❤️ HP: {user['hp'] + heal}/{user['max_hp']}"}
+
+
+async def revive_user(user_id: int) -> dict:
+    user = await get_or_create_user(user_id)
+    if user["is_alive"]:
+        return {"success": False, "message": "Ты уже живой."}
+
+    new_hp = max(1, user["max_hp"] // 2)
+    await update_user(user_id, is_alive=1, hp=new_hp)
+    await _log_action(user_id, "revive", {"hp": new_hp})
+
+    return {"success": True, "message": f"✨ Ты очнулся...\n❤️ HP: {new_hp}/{user['max_hp']}\n<i>Туман дарует тебе вторую жизнь.</i>"}
+
+
+# ──────────────────────────────────────────────
+#  Разговор с существами
+# ──────────────────────────────────────────────
+
+CREATURE_DIALOGUES = {
+    "elder_fisherman": [
+        "Глаза не поднимая: «Вода не прощает. Запомни это.»",
+        "Плюёт на берег: «Вижу, ты ищешь ответы. Их тут нет.»",
+        "Крутит удочку: «В реке есть то, что тебе нужно. Но ты не готов.»",
+        "Шепчет: «Белый лес... я был там. Однажды. Больше — никогда.»",
+    ],
+    "wolf_alpha": [
+        "Волк рычит. Он не доверяет тебе.",
+        "Альфа-волк скалится. Ты чувствуешь запах крови.",
+    ],
+    "echo_wraith": [
+        "Голос эха: «Ты — я. Я — ты. Мы оба — ничто.»",
+        "Шёпот: «Забери мою память. Мне она не нужна.»",
+    ],
+    "the_keeper": [
+        "Хранитель молчит. Но его молчание говорит больше слов.",
+        "«Ты пришёл. Наконец-то. Я ждал. Давно.»",
+    ],
+}
+
+async def talk_to_creature(user_id: int, creature_id: str) -> dict:
+    creature = await get_creature(creature_id)
+    if not creature:
+        return {"success": False, "message": "Существо не найдено."}
+
+    user = await get_or_create_user(user_id)
+    if creature["location"] != user["current_location"]:
+        return {"success": False, "message": "Этого существа здесь нет."}
+
+    # Проверяем память существа
+    memory = await get_creature_memory(creature_id, user_id)
+    hostile_memories = [m for m in memory if m["action"] in ("killed_by", "attacked")]
+
+    dialogues = CREATURE_DIALOGUES.get(creature_id, [])
+
+    if creature["disposition"] == "friendly" or (creature["disposition"] == "neutral" and len(hostile_memories) == 0):
+        if dialogues:
+            import random
+            text = f"🗣 <b>{creature['name']}:</b>\n\n<i>{random.choice(dialogues)}</i>"
+        else:
+            text = f"🗣 <b>{creature['name']}</b> молчит. Но его взгляд говорит: «Я знаю то, чего не знаешь ты.»"
+
+        await _log_action(user_id, "talk", {"creature": creature_id})
+        return {"success": True, "message": text}
+    elif len(hostile_memories) > 0:
+        return {"success": False, "message": f"🗣 {creature['name']} рычит. Он помнит, что ты ему сделал.\n\n<i>Говорить бесполезно.</i>"}
+    else:
+        return {"success": False, "message": f"🗣 {creature['name']} не в настроении для разговора.\n\n<i>Лучше не дразнить.</i>"}
+
+
+# ──────────────────────────────────────────────
+#  Отношения с существами
+# ──────────────────────────────────────────────
+
+async def change_creature_relation(creature_id: str, user_id: int, delta: int, action: str):
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT relation FROM creature_relations WHERE creature_id = ? AND user_id = ?",
+        (creature_id, user_id)
+    )
+    row = await cursor.fetchone()
+    if row:
+        new_rel = row["relation"] + delta
+        await db.execute(
+            "UPDATE creature_relations SET relation = ?, last_action = ?, updated_at = datetime('now') WHERE creature_id = ? AND user_id = ?",
+            (new_rel, action, creature_id, user_id)
+        )
+    else:
+        await db.execute(
+            "INSERT INTO creature_relations (creature_id, user_id, relation, last_action) VALUES (?, ?, ?, ?)",
+            (creature_id, user_id, delta, action)
+        )
+    await db.commit()
+
+
+async def get_creature_relation(creature_id: str, user_id: int) -> int:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT relation FROM creature_relations WHERE creature_id = ? AND user_id = ?",
+        (creature_id, user_id)
+    )
+    row = await cursor.fetchone()
+    return row["relation"] if row else 0

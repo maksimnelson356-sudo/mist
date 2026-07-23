@@ -659,6 +659,31 @@ async def seed():
              s["trigger_condition"], s["reward"])
         )
 
+    # ══════════════════════════════════════════════
+    #  ПРЕДМЕТЫ НА ЗЕМЛЕ
+    # ══════════════════════════════════════════════
+
+    ground = [
+        ("dark_forest", "healing_herb", 2),
+        ("dark_forest", "wolf_fang", 1),
+        ("riverbank", "healing_herb", 1),
+        ("riverbank", "old_coin", 1),
+        ("ancient_ruins", "old_coin", 2),
+        ("ancient_ruins", "mysterious_map", 1),
+        ("wolf_den", "wolf_pelt", 1),
+        ("fishing_village", "healing_herb", 3),
+        ("blood_meadow", "blood_wood", 1),
+        ("white_forest", "frost_shard", 1),
+        ("library_of_echoes", "forgotten_page", 1),
+        ("obsidian_tower", "obsidian_shard", 1),
+    ]
+
+    for loc_id, item_id, qty in ground:
+        await db.execute(
+            "INSERT INTO ground_items (location_id, item_id, quantity) VALUES (?, ?, ?)",
+            (loc_id, item_id, qty)
+        )
+
     await db.commit()
     print("✅ Контент MIST загружен!")
     print(f"   📍 Локаций: {len(locations)}")
@@ -666,6 +691,7 @@ async def seed():
     print(f"   🏺 Предметов: {len(items)}")
     print(f"   📜 Квестов: {len(quests)}")
     print(f"   🔮 Секретов: {len(secrets)}")
+    print(f"   📦 Предметов на земле: {len(ground)}")
 
 
 if __name__ == "__main__":

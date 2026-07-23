@@ -169,3 +169,24 @@ CREATE TABLE IF NOT EXISTS legends (
     discovered_at TEXT,
     times_discovered INTEGER DEFAULT 0
 );
+
+-- Предметы на земле
+CREATE TABLE IF NOT EXISTS ground_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    respawn_hours INTEGER DEFAULT 0,
+    spawned_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Репутация существ с игроками (кто кого кормил/атаковал)
+CREATE TABLE IF NOT EXISTS creature_relations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    creature_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    relation INTEGER DEFAULT 0,
+    last_action TEXT,
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(creature_id, user_id)
+);
