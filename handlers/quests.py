@@ -6,30 +6,29 @@ import game_engine as ge
 router = Router()
 
 
+LOC_NAMES = {
+    "dark_forest": "Тёмный лес", "riverbank": "Берег реки",
+    "ancient_ruins": "Древние руины", "fishing_village": "Рыбацкая деревня",
+    "wolf_den": "Логово волков", "temple_of_shadows": "Храм теней",
+    "crystal_cave": "Хрустальная пещера", "white_forest": "Белый лес",
+    "library_of_echoes": "Библиотека эхов", "obsidian_tower": "Обсидиановая башня",
+    "tower_summit": "Вершина башни", "blood_meadow": "Кровавый луг",
+    "shadow_market": "Теневой рынок", "heart_of_mist": "Сердце MIST",
+    "witch_swamp": "Топи ведьмы", "forgotten_graveyard": "Забытое кладбище",
+    "dark_harbour": "Тёмная гавань", "ash_fields": "Пепельные поля",
+    "abandoned_mine": "Заброшенная шахта", "enchanted_grove": "Зачарованная роща",
+    "abandoned_camp": "Покинутый лагерь", "portal_nexus": "Узел порталов",
+}
+
+
 @router.callback_query(F.data == "quests")
 async def cb_quests(callback: CallbackQuery):
     user = await ge.get_or_create_user(callback.from_user.id)
     active_quests = await ge.get_user_quests(callback.from_user.id)
     available_here = await ge.get_available_quests(callback.from_user.id, user["current_location"])
-    all_available = await ge.get_user_quests(callback.from_user.id)
-
-    LOC_NAMES = {
-        "dark_forest": "Тёмный лес", "riverbank": "Берег реки",
-        "ancient_ruins": "Древние руины", "fishing_village": "Рыбацкая деревня",
-        "wolf_den": "Логово волков", "temple_of_shadows": "Храм теней",
-        "crystal_cave": "Хрустальная пещера", "white_forest": "Белый лес",
-        "library_of_echoes": "Библиотека эхов", "obsidian_tower": "Обсидиановая башня",
-        "tower_summit": "Вершина башни", "blood_meadow": "Кровавый луг",
-        "shadow_market": "Теневой рынок", "heart_of_mist": "Сердце MIST",
-        "witch_swamp": "Топи ведьмы", "forgotten_graveyard": "Забытое кладбище",
-        "dark_harbour": "Тёмная гавань", "ash_fields": "Пепельные поля",
-        "abandoned_mine": "Заброшенная шахта", "enchanted_grove": "Зачарованная роща",
-        "abandoned_camp": "Покинутый лагерь", "portal_nexus": "Узел порталов",
-    }
+    all_available_quests = await ge.get_available_quests(callback.from_user.id)
 
     active_ids = {q["quest_id"] for q in active_quests if q["status"] == "active"}
-
-    all_available_quests = await ge.get_available_quests(callback.from_user.id)
     available_quest_ids = {q["quest_id"] for q in (available_here or [])}
 
     text = "📜 <b>Квесты</b>\n\n"
@@ -85,16 +84,20 @@ async def cb_quests(callback: CallbackQuery):
                     progress.get(obj["id"], {}).get("current", 0) >= obj["target"]
                     for obj in objectives
                 )
+                next_step = await ge.find_next_step(user["current_location"], q_loc)
+                if not next_step:
+                    continue
                 loc_name = LOC_NAMES.get(q_loc, q_loc)
+                next_name = LOC_NAMES.get(next_step, next_step)
                 if all_done:
                     buttons.append([InlineKeyboardButton(
-                        text=f"🏆 Сдать: {q['name']} ({loc_name})",
-                        callback_data=f"move:{q_loc}"
+                        text=f"🏆 Сдать: {q['name']} → {next_name}",
+                        callback_data=f"move:{next_step}"
                     )])
                 else:
                     buttons.append([InlineKeyboardButton(
-                        text=f"🚶 {q['name']} → {loc_name}",
-                        callback_data=f"move:{q_loc}"
+                        text=f"🚶 {q['name']} → {next_name}",
+                        callback_data=f"move:{next_step}"
                     )])
                 nav_targets.add(q_loc)
 
@@ -105,10 +108,14 @@ async def cb_quests(callback: CallbackQuery):
                 break
             q_loc = q["location"]
             if q_loc not in nav_targets and q_loc != user["current_location"]:
+                next_step = await ge.find_next_step(user["current_location"], q_loc)
+                if not next_step:
+                    continue
                 loc_name = LOC_NAMES.get(q_loc, q_loc)
+                next_name = LOC_NAMES.get(next_step, next_step)
                 buttons.append([InlineKeyboardButton(
-                    text=f"🗺 {q['name']} ({loc_name})",
-                    callback_data=f"move:{q_loc}"
+                    text=f"🗺 {q['name']} ({loc_name}) → {next_name}",
+                    callback_data=f"move:{next_step}"
                 )])
                 nav_targets.add(q_loc)
                 shown += 1

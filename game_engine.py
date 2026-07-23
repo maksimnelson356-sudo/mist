@@ -164,6 +164,30 @@ async def get_location(location_id: str) -> dict:
     return dict(row) if row else None
 
 
+async def find_next_step(from_loc: str, to_loc: str) -> str | None:
+    if from_loc == to_loc:
+        return None
+    db = await get_db()
+    cursor = await db.execute("SELECT location_id, connections FROM locations")
+    rows = await cursor.fetchall()
+    graph = {}
+    for row in rows:
+        conns = json.loads(row["connections"]) if isinstance(row["connections"], str) else row["connections"]
+        graph[row["location_id"]] = conns
+
+    visited = {from_loc}
+    queue = [(from_loc, [])]
+    while queue:
+        current, path = queue.pop(0)
+        for neighbor in graph.get(current, []):
+            if neighbor == to_loc:
+                return path[0] if path else neighbor
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, path + [neighbor]))
+    return None
+
+
 async def move_user(user_id: int, target_location: str) -> dict:
     db = await get_db()
     cursor = await db.execute("SELECT current_location FROM users WHERE user_id = ?", (user_id,))
