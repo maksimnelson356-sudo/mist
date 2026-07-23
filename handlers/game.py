@@ -15,7 +15,9 @@ def is_my_message(message: Message, bot_username: str) -> bool:
         if "@" in cmd:
             return cmd.split("@")[1].lower() == bot_username.lower()
         return False
-    return True
+    if message.reply_to_message and message.reply_to_message.from_user and message.reply_to_message.from_user.username:
+        return message.reply_to_message.from_user.username.lower() == bot_username.lower()
+    return False
 
 
 async def _loc_name(loc_id: str) -> str:
@@ -33,9 +35,11 @@ def main_menu_kb():
         [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
         [InlineKeyboardButton(text="💚 Исцелиться", callback_data="heal")],
         [InlineKeyboardButton(text="🎒 Инвентарь", callback_data="inventory")],
+        [InlineKeyboardButton(text="🛒 Магазин", callback_data="shop")],
         [InlineKeyboardButton(text="👤 Статус", callback_data="status")],
         [InlineKeyboardButton(text="🔮 Шёпот тумана", callback_data="whisper")],
         [InlineKeyboardButton(text="🏆 Энциклопедия", callback_data="legends")],
+        [InlineKeyboardButton(text="⚔️ PvP Арена", callback_data="pvp_menu")],
     ])
 
 
@@ -109,6 +113,17 @@ async def cmd_start(message: Message, bot_username: str):
     if not is_my_message(message, bot_username):
         return
 
+    if message.chat.type != "private":
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🌫 Начать игру", url=f"https://t.me/{bot_username}?start=start")]
+        ])
+        await message.answer(
+            "🌫 <b>MIST</b> — текстовый квест в тумане.\n\n"
+            "Играй в личных сообщениях!",
+            reply_markup=kb
+        )
+        return
+
     user = await ge.get_or_create_user(message.from_user.id, message.from_user.username)
 
     if not user["is_alive"]:
@@ -131,9 +146,36 @@ async def cmd_start(message: Message, bot_username: str):
         "Туман помнит всё.\n\n"
         f"📍 <b>{loc['name']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
-        f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
+        f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
     )
     await message.answer(text, reply_markup=main_menu_kb())
+
+
+@router.message(F.chat.type.in_({"group", "supergroup"}))
+async def group_mention(message: Message, bot_username: str):
+    if not message.text:
+        return
+    text_lower = message.text.lower()
+    if f"@{bot_username.lower()}" not in text_lower and not (
+        message.reply_to_message and message.reply_to_message.from_user
+        and message.reply_to_message.from_user.username
+        and message.reply_to_message.from_user.username.lower() == bot_username.lower()
+    ):
+        return
+
+    import random
+    whispers = [
+        "Туман шепчет... <i>«Играй в личке...»</i>",
+        "Из глубины тумана: <i>«/start в личных сообщениях...»</i>",
+        "Голос из пустоты: <i>«MIST ждёт тебя в личке...»</i>",
+        "Шёпот: <i>«Ты не можешь играть здесь. Туман ведёт к другому входу...»</i>",
+    ]
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌫 Начать игру", url=f"https://t.me/{bot_username}?start=start")]
+    ])
+
+    await message.answer(random.choice(whispers), reply_markup=kb)
 
 
 @router.callback_query(F.data == "revive")
@@ -328,6 +370,16 @@ async def cb_pickup(callback: CallbackQuery):
     user = await ge.get_or_create_user(callback.from_user.id)
     result = await ge.pick_up_item(callback.from_user.id, user["current_location"], item_id)
 
+    if result["success"]:
+        user_quests = await ge.get_user_quests(callback.from_user.id)
+        for uq in user_quests:
+            if uq["status"] != "active":
+                continue
+            objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
+            for obj in objectives:
+                if obj.get("type") == "collect" and obj.get("item") == item_id:
+                    await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
+
     await callback.message.edit_text(result["message"], reply_markup=post_action_kb())
     await callback.answer()
 
@@ -348,6 +400,15 @@ async def cb_pickup_all(callback: CallbackQuery):
         if result["success"]:
             name = g.get("name") or g["item_id"]
             picked.append(f"{name} x{g['quantity']}")
+
+            user_quests = await ge.get_user_quests(callback.from_user.id)
+            for uq in user_quests:
+                if uq["status"] != "active":
+                    continue
+                objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
+                for obj in objectives:
+                    if obj.get("type") == "collect" and obj.get("item") == g["item_id"]:
+                        await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
     text = "🤲 <b>Подобрано:</b>\n\n" + "\n".join(f"• {p}" for p in picked)
     await callback.message.edit_text(text, reply_markup=post_action_kb())
@@ -476,6 +537,8 @@ async def cb_attack(callback: CallbackQuery):
 
     if combat["outcome"] == "victory":
         text += f"\n🏆 <b>ПОБЕДА!</b>\n+{combat['xp_gained']} XP"
+        if combat.get("gold_gained"):
+            text += f"\n+{combat['gold_gained']} 🪙"
         if combat["loot"]:
             text += f"\n📦 Лут: {', '.join(combat['loot'])}"
     elif combat["outcome"] == "defeat":
@@ -593,7 +656,8 @@ async def cb_status(callback: CallbackQuery):
         f"❤️ HP: {user['hp']}/{user['max_hp']}\n"
         f"🗡 Атака: {user['attack']}\n"
         f"🛡 Защита: {user['defense']}\n"
-        f"⭐ Уровень: {user['level']} (XP: {user['xp']}/{xp_needed})\n\n"
+        f"⭐ Уровень: {user['level']} (XP: {user['xp']}/{xp_needed})\n"
+        f"🪙 Золото: {user['gold']}\n\n"
         f"🎒 Воспоминаний: {user['memories']}\n"
         f"⚖️ Карма: {user['karma']}\n"
         f"📝 Твоих действий: {total}\n"

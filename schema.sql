@@ -18,7 +18,11 @@ CREATE TABLE IF NOT EXISTS users (
     attack INTEGER DEFAULT 10,
     defense INTEGER DEFAULT 5,
     level INTEGER DEFAULT 1,
-    xp INTEGER DEFAULT 0
+    xp INTEGER DEFAULT 0,
+    gold INTEGER DEFAULT 0,
+    pvp_wins INTEGER DEFAULT 0,
+    pvp_losses INTEGER DEFAULT 0,
+    pvp_rating INTEGER DEFAULT 1000
 );
 
 -- Инвентарь
@@ -189,4 +193,16 @@ CREATE TABLE IF NOT EXISTS creature_relations (
     last_action TEXT,
     updated_at TEXT DEFAULT (datetime('now')),
     UNIQUE(creature_id, user_id)
+);
+
+-- Магазин
+CREATE TABLE IF NOT EXISTS shop_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shop_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    stock INTEGER DEFAULT -1,
+    required_level INTEGER DEFAULT 0,
+    required_karma INTEGER DEFAULT 0,
+    UNIQUE(shop_id, item_id)
 );

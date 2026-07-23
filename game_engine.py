@@ -435,6 +435,7 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
                 await add_item(user_id, loot_item["item_id"], loot_item.get("qty", 1))
                 result_log["loot"].append(loot_item["item_id"])
 
+        gold_reward = random.randint(2, creature["xp_reward"] // 5 + 3)
         new_xp = user["xp"] + creature["xp_reward"]
         new_level = user["level"]
         xp_needed = new_level * 100
@@ -442,7 +443,8 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
             new_level += 1
             new_xp -= xp_needed
 
-        await update_user(user_id, xp=new_xp, level=new_level, hp=min(user["max_hp"], user_hp + 20))
+        await update_user(user_id, xp=new_xp, level=new_level, hp=min(user["max_hp"], user_hp + 20), gold=user["gold"] + gold_reward)
+        result_log["gold_gained"] = gold_reward
 
         await db.execute("UPDATE creatures SET is_alive = 0 WHERE creature_id = ?", (creature_id,))
         await db.commit()
@@ -620,6 +622,10 @@ async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, 
         if "items" in rewards:
             for item in rewards["items"]:
                 await add_item(user_id, item["id"], item.get("qty", 1))
+
+        if "gold" in rewards:
+            user = await get_or_create_user(user_id)
+            await update_user(user_id, gold=user["gold"] + rewards["gold"])
 
         await db.execute(
             "UPDATE user_quests SET status = 'completed', progress = ?, completed_at = datetime('now') WHERE user_id = ? AND quest_id = ?",
@@ -896,3 +902,289 @@ async def get_creature_relation(creature_id: str, user_id: int) -> int:
     )
     row = await cursor.fetchone()
     return row["relation"] if row else 0
+
+
+# ──────────────────────────────────────────────
+#  Магазин
+# ──────────────────────────────────────────────
+
+async def get_shop_items(shop_id: str) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT s.*, t.name, t.description, t.rarity
+           FROM shop_items s
+           LEFT JOIN item_templates t ON s.item_id = t.item_id
+           WHERE s.shop_id = ? AND s.stock != 0""",
+        (shop_id,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def buy_item(user_id: int, shop_id: str, item_id: str) -> dict:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+
+    cursor = await db.execute(
+        "SELECT * FROM shop_items WHERE shop_id = ? AND item_id = ?",
+        (shop_id, item_id)
+    )
+    shop_entry = await cursor.fetchone()
+    if not shop_entry:
+        return {"success": False, "message": "Этого товара нет в магазине."}
+
+    shop_entry = dict(shop_entry)
+
+    if shop_entry["stock"] == 0:
+        return {"success": False, "message": "Этот товар закончился."}
+
+    if user["level"] < shop_entry["required_level"]:
+        return {"success": False, "message": f"Нужен уровень {shop_entry['required_level']}."}
+
+    if user["karma"] < shop_entry["required_karma"]:
+        return {"success": False, "message": "Твоя карма слишком низка для этой покупки."}
+
+    if user["gold"] < shop_entry["price"]:
+        return {"success": False, "message": f"Недостаточно золота. Нужно: {shop_entry['price']} 🪙, есть: {user['gold']} 🪙"}
+
+    await update_user(user_id, gold=user["gold"] - shop_entry["price"])
+    await add_item(user_id, item_id, 1)
+
+    if shop_entry["stock"] > 0:
+        await db.execute(
+            "UPDATE shop_items SET stock = stock - 1 WHERE shop_id = ? AND item_id = ?",
+            (shop_id, item_id)
+        )
+        await db.commit()
+
+    t = await get_item_template(item_id)
+    name = t["name"] if t else item_id
+
+    await _log_action(user_id, "buy_item", {"item_id": item_id, "shop": shop_id, "price": shop_entry["price"]})
+
+    return {"success": True, "message": f"🛒 Купил «{name}» за {shop_entry['price']} 🪙"}
+
+
+async def sell_item(user_id: int, item_id: str) -> dict:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+
+    t = await get_item_template(item_id)
+    if not t:
+        return {"success": False, "message": "Предмет не найден."}
+
+    cursor = await db.execute(
+        "SELECT id, quantity FROM inventory WHERE user_id = ? AND item_id = ?",
+        (user_id, item_id)
+    )
+    inv_item = await cursor.fetchone()
+    if not inv_item or inv_item["quantity"] < 1:
+        return {"success": False, "message": "У тебя нет этого предмета."}
+
+    rarity_prices = {"common": 3, "rare": 8, "epic": 20, "legendary": 50}
+    price = rarity_prices.get(t["rarity"], 3)
+
+    await remove_item(user_id, item_id, 1)
+    await update_user(user_id, gold=user["gold"] + price)
+    await _log_action(user_id, "sell_item", {"item_id": item_id, "price": price})
+
+    return {"success": True, "message": f"💰 Продал «{t['name']}» за {price} 🪙"}
+
+
+async def get_user_gold(user_id: int) -> int:
+    user = await get_or_create_user(user_id)
+    return user["gold"]
+
+
+async def seed_shop():
+    db = await get_db()
+    shop_items_data = [
+        # ═══ РЫБАЦКАЯ ДЕРЕВНЯ — базовые зелья ═══
+        ("fishing_village", "healing_herb", 5, -1, 1, 0),
+        ("fishing_village", "swamp_root", 8, -1, 1, 0),
+        ("fishing_village", "wolf_fang", 10, -1, 1, 0),
+        # ═══ ТОРГОВАЯ ПЛОЩАДЬ — оружие и броня ═══
+        ("market_square", "obsidian_shard", 15, -1, 2, 0),
+        ("market_square", "serpent_scale", 12, -1, 2, 0),
+        ("market_square", "frost_shard", 18, -1, 3, 0),
+        ("market_square", "shadow_essence", 25, 5, 3, 0),
+        # ═══ ТЕНЕВОЙ РЫНОК — редкое ═══
+        ("shadow_market", "echo_crystal", 40, 3, 5, 5),
+        ("shadow_market", "gargoyle_eye", 60, 2, 7, 10),
+        ("shadow_market", "mirror_fragment", 55, 2, 6, 8),
+        ("shadow_market", "frozen_tear", 35, -1, 4, 3),
+        ("shadow_market", "soul_bottle", 100, 1, 10, 15),
+        # ═══ ХРАМ ТЕНЕЙ — тёмные предметы ═══
+        ("temple_of_shadows", "dark_shard", 20, -1, 3, -5),
+        ("temple_of_shadows", "bloodstone", 30, 5, 5, -3),
+        ("temple_of_shadows", "arcane_dust", 8, -1, 1, 0),
+    ]
+
+    for shop_id, item_id, price, stock, req_level, req_karma in shop_items_data:
+        await db.execute(
+            """INSERT OR REPLACE INTO shop_items (shop_id, item_id, price, stock, required_level, required_karma)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (shop_id, item_id, price, stock, req_level, req_karma)
+        )
+    await db.commit()
+
+
+# ──────────────────────────────────────────────
+#  PvP Арена
+# ──────────────────────────────────────────────
+
+async def get_pvp_opponents(user_id: int) -> list:
+    db = await get_db()
+    user = await get_or_create_user(user_id)
+    cursor = await db.execute(
+        """SELECT user_id, username, display_name, level, hp, max_hp, attack, defense, pvp_rating
+           FROM users WHERE user_id != ? AND is_alive = 1
+           ORDER BY ABS(pvp_rating - ?) LIMIT 10""",
+        (user_id, user["pvp_rating"])
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def pvp_battle(user_id: int, target_id: int) -> dict:
+    user = await get_or_create_user(user_id)
+    target = await get_or_create_user(target_id)
+
+    if not user["is_alive"]:
+        return {"success": False, "message": "Ты мёртв. Очнись сначала."}
+    if not target["is_alive"]:
+        return {"success": False, "message": "Противник мёртв."}
+
+    result = {
+        "rounds": [],
+        "user_hp": user["hp"],
+        "target_hp": target["hp"],
+        "outcome": None,
+        "xp_gained": 0,
+        "gold_gained": 0,
+    }
+
+    user_hp = user["hp"]
+    target_hp = target["hp"]
+    round_num = 0
+
+    while user_hp > 0 and target_hp > 0 and round_num < 15:
+        round_num += 1
+        rd = {"round": round_num}
+
+        user_dmg = max(1, user["attack"] - target["defense"] + random.randint(-2, 4))
+        target_hp -= user_dmg
+        rd["user_damage"] = user_dmg
+
+        target_dmg = max(1, target["attack"] - user["defense"] + random.randint(-2, 4))
+        user_hp -= target_dmg
+        rd["target_damage"] = target_dmg
+
+        result["rounds"].append(rd)
+
+    result["user_hp"] = max(0, user_hp)
+    result["target_hp"] = max(0, target_hp)
+
+    db = await get_db()
+
+    old_user_rating = user["pvp_rating"]
+    old_target_rating = target["pvp_rating"]
+
+    k = 32
+
+    if target_hp <= 0 and user_hp > 0:
+        result["outcome"] = "victory"
+        result["xp_gained"] = 15 + target["level"] * 3
+        result["gold_gained"] = 5 + target["level"] * 2
+
+        rating_change = max(10, (old_target_rating - old_user_rating) // 5 + 15)
+        new_user_rating = old_user_rating + rating_change
+        new_target_rating = max(100, old_target_rating - rating_change)
+
+        new_xp = user["xp"] + result["xp_gained"]
+        new_level = user["level"]
+        if new_xp >= new_level * 100:
+            new_level += 1
+            new_xp -= new_level * 100
+
+        await update_user(user_id,
+            xp=new_xp, level=new_level,
+            hp=min(user["max_hp"], user_hp + 30),
+            gold=user["gold"] + result["gold_gained"],
+            pvp_wins=user["pvp_wins"] + 1,
+            pvp_rating=new_user_rating
+        )
+        await update_user(target_id,
+            hp=max(1, target_hp),
+            pvp_losses=target["pvp_losses"] + 1,
+            pvp_rating=new_target_rating
+        )
+
+        await _log_action(user_id, "pvp_win", {
+            "target": target_id, "xp": result["xp_gained"],
+            "gold": result["gold_gained"], "rating_change": rating_change
+        })
+
+    elif user_hp <= 0:
+        result["outcome"] = "defeat"
+
+        rating_change = max(10, (old_user_rating - old_target_rating) // 5 + 15)
+        new_user_rating = max(100, old_user_rating - rating_change)
+        new_target_rating = old_target_rating + rating_change
+
+        await update_user(user_id, hp=0, is_alive=0, pvp_losses=user["pvp_losses"] + 1, pvp_rating=new_user_rating)
+        await update_user(target_id, pvp_wins=target["pvp_wins"] + 1, pvp_rating=new_target_rating)
+
+        await _log_action(user_id, "pvp_loss", {"target": target_id, "rating_change": rating_change})
+
+    else:
+        result["outcome"] = "draw"
+        await update_user(user_id, hp=max(1, user_hp))
+        await update_user(target_id, hp=max(1, target_hp))
+
+    await db.execute(
+        """INSERT INTO combat_log (user_id, creature_id, result, damage_dealt, damage_taken, xp_gained, loot_dropped)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (user_id, f"pvp_{target_id}", result["outcome"],
+         sum(r.get("user_damage", 0) for r in result["rounds"]),
+         sum(r.get("target_damage", 0) for r in result["rounds"]),
+         result["xp_gained"], json.dumps([]))
+    )
+    await db.commit()
+
+    return result
+
+
+async def get_pvp_leaderboard(limit: int = 10) -> list:
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT user_id, username, display_name, level, pvp_rating, pvp_wins, pvp_losses
+           FROM users WHERE pvp_wins > 0 OR pvp_losses > 0
+           ORDER BY pvp_rating DESC LIMIT ?""",
+        (limit,)
+    )
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_pvp_stats(user_id: int) -> dict:
+    user = await get_or_create_user(user_id)
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM combat_log WHERE user_id = ? AND creature_id LIKE 'pvp_%' AND result = 'victory'",
+        (user_id,)
+    )
+    total_pvp_wins = (await cursor.fetchone())[0]
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM combat_log WHERE user_id = ? AND creature_id LIKE 'pvp_%'",
+        (user_id,)
+    )
+    total_pvp_fights = (await cursor.fetchone())[0]
+
+    return {
+        "rating": user["pvp_rating"],
+        "wins": user["pvp_wins"],
+        "losses": user["pvp_losses"],
+        "total_fights": total_pvp_fights,
+        "winrate": round(user["pvp_wins"] / max(1, user["pvp_wins"] + user["pvp_losses"]) * 100, 1),
+    }
