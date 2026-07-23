@@ -1,0 +1,14 @@
+[Unit]
+Description=MIST Telegram Bot
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/MIST
+ExecStart=/opt/MIST/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
