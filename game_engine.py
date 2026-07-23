@@ -8,6 +8,18 @@ from database.db import get_db
 #  Пользователи
 # ──────────────────────────────────────────────
 
+async def _apply_level_up(user_id: int, new_level: int):
+    db = await get_db()
+    new_max_hp = 100 + (new_level - 1) * 15
+    new_attack = 10 + (new_level - 1) * 3
+    new_defense = 5 + (new_level - 1) * 2
+    await db.execute(
+        "UPDATE users SET level = ?, max_hp = ?, attack = ?, defense = ? WHERE user_id = ?",
+        (new_level, new_max_hp, new_attack, new_defense, user_id)
+    )
+    await db.commit()
+
+
 async def get_or_create_user(user_id: int, username: str = None) -> dict:
     db = await get_db()
     cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
@@ -213,6 +225,21 @@ async def get_creatures_at_location(location_id: str) -> list:
         (location_id,)
     )
     rows = await cursor.fetchall()
+    if not rows:
+        cursor2 = await db.execute(
+            "SELECT creature_id FROM creatures WHERE location = ? AND is_alive = 0",
+            (location_id,)
+        )
+        dead = await cursor2.fetchall()
+        for d in dead:
+            if random.random() < 0.4:
+                await db.execute("UPDATE creatures SET is_alive = 1, hp = max_hp WHERE creature_id = ?", (d["creature_id"],))
+        await db.commit()
+        cursor = await db.execute(
+            "SELECT * FROM creatures WHERE location = ? AND is_alive = 1",
+            (location_id,)
+        )
+        rows = await cursor.fetchall()
     return [dict(r) for r in rows]
 
 
@@ -442,10 +469,15 @@ async def resolve_combat(user_id: int, creature_id: str, action: str = "attack")
         new_xp = user["xp"] + creature["xp_reward"]
         new_level = user["level"]
         xp_needed = new_level * 100
-        if new_xp >= xp_needed:
+        leveled = False
+        while new_xp >= xp_needed:
             new_level += 1
             new_xp -= xp_needed
+            xp_needed = new_level * 100
+            leveled = True
 
+        if leveled:
+            await _apply_level_up(user_id, new_level)
         await update_user(user_id, xp=new_xp, level=new_level, hp=min(user["max_hp"], user_hp + 20), gold=user["gold"] + gold_reward)
         result_log["gold_gained"] = gold_reward
 
@@ -615,9 +647,14 @@ async def update_quest_progress(user_id: int, quest_id: str, objective_id: str, 
             new_xp = user["xp"] + rewards["xp"]
             new_level = user["level"]
             xp_needed = new_level * 100
-            if new_xp >= xp_needed:
+            leveled = False
+            while new_xp >= xp_needed:
                 new_level += 1
                 new_xp -= xp_needed
+                xp_needed = new_level * 100
+                leveled = True
+            if leveled:
+                await _apply_level_up(user_id, new_level)
             await update_user(user_id, xp=new_xp, level=new_level)
 
         if "memories" in rewards:
@@ -769,16 +806,22 @@ async def use_item(user_id: int, item_id: str) -> dict:
         new_xp = user["xp"] + effect["xp"]
         new_level = user["level"]
         xp_needed = new_level * 100
-        if new_xp >= xp_needed:
+        leveled = False
+        while new_xp >= xp_needed:
             new_level += 1
             new_xp -= xp_needed
+            xp_needed = new_level * 100
+            leveled = True
+        if leveled:
+            await _apply_level_up(user_id, new_level)
         await update_user(user_id, xp=new_xp, level=new_level)
         messages.append(f"⭐ +{effect['xp']} XP")
 
     if "level_up" in effect:
         new_level = user["level"] + 1
-        new_max_hp = user["max_hp"] + 20
-        await update_user(user_id, level=new_level, max_hp=new_max_hp, hp=new_max_hp)
+        await _apply_level_up(user_id, new_level)
+        fresh = await get_or_create_user(user_id)
+        await update_user(user_id, hp=fresh["max_hp"])
         messages.append("⭐ Уровень Increased!")
 
     if "light" in effect:
@@ -1125,9 +1168,13 @@ async def pvp_battle(user_id: int, target_id: int) -> dict:
 
         new_xp = user["xp"] + result["xp_gained"]
         new_level = user["level"]
-        if new_xp >= new_level * 100:
-            new_xp -= new_level * 100
+        leveled = False
+        while new_xp >= new_level * 100:
             new_level += 1
+            new_xp -= (new_level - 1) * 100
+            leveled = True
+        if leveled:
+            await _apply_level_up(user_id, new_level)
 
         await update_user(user_id,
             xp=new_xp, level=new_level,
@@ -1266,9 +1313,13 @@ async def craft_item(user_id: int, recipe_id: str) -> dict:
 
     new_xp = user["xp"] + recipe["xp_reward"]
     new_level = user["level"]
-    if new_xp >= new_level * 100:
-        new_xp -= new_level * 100
+    leveled = False
+    while new_xp >= new_level * 100:
         new_level += 1
+        new_xp -= (new_level - 1) * 100
+        leveled = True
+    if leveled:
+        await _apply_level_up(user_id, new_level)
     await update_user(user_id, xp=new_xp, level=new_level)
 
     db = await get_db()

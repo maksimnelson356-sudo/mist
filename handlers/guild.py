@@ -2,9 +2,15 @@ import json
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 import game_engine as ge
 
 router = Router()
+
+
+class GuildCreate(StatesGroup):
+    waiting_name = State()
 
 
 @router.callback_query(F.data == "guild_menu")
@@ -63,17 +69,18 @@ async def cb_guild_menu(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "guild_create")
-async def cb_guild_create(callback: CallbackQuery):
+async def cb_guild_create(callback: CallbackQuery, state: FSMContext):
     text = "🏰 <b>Создание гильдии</b>\n\nСтоимость: 50 🪙\n\nОтправь название гильдии в чат:"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_menu")]
     ])
+    await state.set_state(GuildCreate.waiting_name)
     await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
 
 
-@router.message(F.text, ~F.text.startswith("/"))
-async def handle_guild_name_input(message: Message, bot_username: str):
+@router.message(GuildCreate.waiting_name)
+async def handle_guild_name_input(message: Message, state: FSMContext):
     if message.chat.type != "private":
         return
     text = message.text.strip()
@@ -81,6 +88,7 @@ async def handle_guild_name_input(message: Message, bot_username: str):
         await message.answer("Название должно быть 3-30 символов.")
         return
 
+    await state.clear()
     result = await ge.create_guild(message.from_user.id, text, description=f"Гильдия «{text}»")
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
