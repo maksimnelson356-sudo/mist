@@ -1,113 +1,59 @@
 import json
-from aiogram import Router, F
-from aiogram.types import Message
-from aiogram.filters import Command
+from aiogram import Router
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 import game_engine as ge
 
 router = Router()
 
 
-@router.message(Command("quests"))
-async def cmd_quests(message: Message):
-    quests = await ge.get_user_quests(message.from_user.id)
+@router.callback_query(F.data == "quests")
+async def cb_quests(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id)
+    active_quests = await ge.get_user_quests(callback.from_user.id)
+    available = await ge.get_available_quests(callback.from_user.id, user["current_location"])
 
-    if not quests:
-        await message.answer("📜 У тебя нет активных квестов.\n\nИспользуй /quest_list чтобы увидеть доступные.")
-        return
+    text = "📜 <b>Квесты</b>\n\n"
 
-    text = "📜 *Твои квесты:*\n\n"
-    for q in quests:
-        status_icon = "⏳" if q["status"] == "active" else "✅"
-        progress = json.loads(q["progress"]) if isinstance(q["progress"], str) else q["progress"]
+    if active_quests:
+        text += "<b>Активные:</b>\n"
+        for q in active_quests:
+            if q["status"] != "active":
+                continue
+            progress = json.loads(q["progress"]) if isinstance(q["progress"], str) else q["progress"]
+            objectives = json.loads(q["objectives"]) if isinstance(q["objectives"], str) else q["objectives"]
+            text += f"\n📋 <b>{q['name']}</b>\n"
+            for obj in objectives:
+                p = progress.get(obj["id"], {"current": 0, "target": obj["target"]})
+                done = "✅" if p["current"] >= p["target"] else "⬜"
+                text += f"  {done} {obj['description']}: {p['current']}/{p['target']}\n"
 
-        text += f"{status_icon} *{q['name']}*\n"
-        text += f"_{q['description']}_\n"
+    if available:
+        text += "\n<b>Доступные здесь:</b>\n"
+        for q in available:
+            text += f"  📜 {q['name']}\n"
 
-        objectives = json.loads(q["objectives"]) if isinstance(q["objectives"], str) else q["objectives"]
-        for obj in objectives:
-            p = progress.get(obj["id"], {"current": 0, "target": obj["target"]})
-            bar = "█" * (p["current"] // max(1, p["target"]) * 10) + "░" * (10 - p["current"] // max(1, p["target"]) * 10)
-            text += f"  {obj['description']}: {p['current']}/{p['target']} {bar}\n"
+    buttons = []
+    if available:
+        for q in available:
+            buttons.append([InlineKeyboardButton(
+                text=f"Принять: {q['name']}",
+                callback_data=f"accept:{q['quest_id']}"
+            )])
+    buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
 
-        text += "\n"
-
-    await message.answer(text, parse_mode="Markdown")
-
-
-@router.message(Command("quest_list"))
-async def cmd_quest_list(message: Message):
-    user = await ge.get_or_create_user(message.from_user.id)
-    quests = await ge.get_available_quests(message.from_user.id, user["current_location"])
-
-    if not quests:
-        await message.answer("📜 Нет доступных квестов в этой области.")
-        return
-
-    text = "📜 *Доступные квесты:*\n\n"
-    for q in quests:
-        rewards = json.loads(q["rewards"]) if isinstance(q["rewards"], str) else q["rewards"]
-        reward_text = []
-        if "xp" in rewards:
-            reward_text.append(f"+{rewards['xp']} XP")
-        if "memories" in rewards:
-            reward_text.append(f"+{rewards['memories']} воспоминаний")
-        if "karma" in rewards:
-            reward_text.append(f"+{rewards['karma']} карма")
-
-        text += f"📜 *{q['name']}*\n"
-        text += f"_{q['description']}_\n"
-        text += f"Награда: {', '.join(reward_text)}\n"
-        text += f"/accept_{q['quest_id']} — принять\n\n"
-
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await callback.answer()
 
 
-@router.message(Command("accept"))
-async def cmd_accept(message: Message):
-    parts = message.text.split()
-    if len(parts) < 2:
-        await message.answer("Какой квест принять? Используй /quest_list")
-        return
+@router.callback_query(F.data.startswith("accept:"))
+async def cb_accept(callback: CallbackQuery):
+    quest_id = callback.data.split(":")[1]
+    result = await ge.accept_quest(callback.from_user.id, quest_id)
 
-    quest_id = parts[1]
-    result = await ge.accept_quest(message.from_user.id, quest_id)
-    await message.answer(result["message"], parse_mode="Markdown")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
 
-
-@router.message(F.text.startswith("/accept_"))
-async def cmd_accept_short(message: Message):
-    quest_id = message.text.replace("/accept_", "")
-    result = await ge.accept_quest(message.from_user.id, quest_id)
-    await message.answer(result["message"], parse_mode="Markdown")
-
-
-@router.message(Command("quest_complete"))
-async def cmd_quest_complete(message: Message):
-    parts = message.text.split()
-    if len(parts) < 3:
-        await message.answer("Формат: /quest_complete [quest_id] [objective_id]")
-        return
-
-    quest_id = parts[1]
-    objective_id = parts[2]
-
-    result = await ge.update_quest_progress(message.from_user.id, quest_id, objective_id)
-
-    if result["success"]:
-        if result["completed"]:
-            rewards = result["rewards"]
-            reward_text = []
-            if "xp" in rewards:
-                reward_text.append(f"+{rewards['xp']} XP")
-            if "memories" in rewards:
-                reward_text.append(f"+{rewards['memories']} воспоминаний")
-            if "karma" in rewards:
-                reward_text.append(f"+{rewards['karma']} карма")
-
-            text = f"{result['message']}\n\n🎁 Награда: {', '.join(reward_text)}"
-        else:
-            text = "📝 Прогресс обновлён."
-    else:
-        text = "❌ Не удалось обновить прогресс."
-
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()

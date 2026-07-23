@@ -1,246 +1,303 @@
 import json
-from aiogram import Router, F
-from aiogram.types import Message
+from aiogram import Router, F, Bot
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import CommandStart, Command
 import game_engine as ge
 
 router = Router()
 
 
+def is_my_message(message: Message, bot_username: str) -> bool:
+    if message.chat.type == "private":
+        return True
+    if message.text and message.text.startswith("/"):
+        cmd = message.text.split()[0].lstrip("/")
+        if "@" in cmd:
+            return cmd.split("@")[1].lower() == bot_username.lower()
+        return True
+    return True
+
+
+def main_menu_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔍 Осмотреться", callback_data="look")],
+        [InlineKeyboardButton(text="🗺 Карта", callback_data="locations")],
+        [InlineKeyboardButton(text="⚔️ Бой", callback_data="fight_menu")],
+        [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
+        [InlineKeyboardButton(text="🎒 Инвентарь", callback_data="inventory")],
+        [InlineKeyboardButton(text="👤 Статус", callback_data="status")],
+        [InlineKeyboardButton(text="🔮 Шёпот тумана", callback_data="whisper")],
+    ])
+
+
+def back_to_main_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
+    ])
+
+
+def combat_kb(user_id: int, creatures: list):
+    buttons = []
+    for c in creatures:
+        buttons.append([InlineKeyboardButton(
+            text=f"⚔️ {c['name']} (HP:{c['hp']})",
+            callback_data=f"attack:{c['creature_id']}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def move_kb(connections: list):
+    buttons = []
+    for loc_id in connections:
+        buttons.append([InlineKeyboardButton(
+            text=f"🚶 {loc_id}",
+            callback_data=f"move:{loc_id}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def quest_list_kb(quests_list: list):
+    buttons = []
+    for q in quests_list:
+        buttons.append([InlineKeyboardButton(
+            text=f"📜 {q['name']}",
+            callback_data=f"accept:{q['quest_id']}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ──────────────────────────────────────────────
+#  Старт
+# ──────────────────────────────────────────────
+
 @router.message(CommandStart())
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, bot_username: str):
+    if not is_my_message(message, bot_username):
+        return
+
     user = await ge.get_or_create_user(message.from_user.id, message.from_user.username)
 
     text = (
-        "🌫 *Добро пожаловать в MIST*\n\n"
+        "🌫 <b>Добро пожаловать в MIST</b>\n\n"
         "Ты просыпаешься в тумане.\n"
         "Не помнишь, как сюда попал.\n"
         "Рядом — камни, деревья, и что-то шепчет вдали.\n\n"
         "Ты — один из тех, кого MIST выбрал.\n"
-        "Здесь каждый шаг имеет значение.\n"
-        "Каждое слово. Каждое молчание.\n\n"
+        "Здесь каждый шаг имеет значение.\n\n"
         "Туман помнит всё.\n\n"
-        "─────────────────\n"
-        f"📍 *Локация:* Тёмный лес\n"
-        f"🎒 *Воспоминаний:* {user['memories']}\n"
-        f"⚖️ *Карма:* {user['karma']}\n\n"
-        "Используй /help чтобы узнать команды."
+        f"📍 <b>Локация:</b> Тёмный лес\n"
+        f"🎒 <b>Воспоминаний:</b> {user['memories']}\n"
+        f"⚖️ <b>Карма:</b> {user['karma']}"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text, reply_markup=main_menu_kb())
 
 
-@router.message(Command("help"))
-async def cmd_help(message: Message):
+@router.callback_query(F.data == "main_menu")
+async def cb_main_menu(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id, callback.from_user.username)
     text = (
-        "📋 *Команды MIST*\n\n"
-        "🌍 *Исследование:*\n"
-        "/look — осмотреться\n"
-        "/move — перейти (см. /locations)\n"
-        "/locations — список локаций\n\n"
-        "⚔️ *Бой:*\n"
-        "/fight — показать противников\n"
-        "/attack — атаковать существо\n"
-        "/heal — восстановить HP\n"
-        "/combat_history — история боёв\n\n"
-        "📜 *Квесты:*\n"
-        "/quests — твои квесты\n"
-        "/quest_list — доступные квесты\n"
-        "/accept — принять квест\n\n"
-        "🎒 *Инвентарь:*\n"
-        "/inventory — твой инвентарь\n"
-        "/use — использовать предмет\n\n"
-        "👤 *Прогресс:*\n"
-        "/status — статус персонажа\n"
-        "/actions — история действий\n\n"
-        "📚 *Энциклопедия:*\n"
-        "/legends — что мир уже открыл\n\n"
-        "🔮 *Тайны:*\n"
-        "/whisper — шёпот тумана\n"
-        "/secrets — найденные тайны"
+        f"📍 <b>Локация:</b> {user['current_location']}\n"
+        f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
+        f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=main_menu_kb())
+    await callback.answer()
 
 
-@router.message(Command("look"))
-async def cmd_look(message: Message):
-    user = await ge.get_or_create_user(message.from_user.id)
+# ──────────────────────────────────────────────
+#  Осмотреться
+# ──────────────────────────────────────────────
+
+@router.callback_query(F.data == "look")
+async def cb_look(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id)
     loc = await ge.get_location(user["current_location"])
     creatures = await ge.get_creatures_at_location(user["current_location"])
 
-    text = f"🌍 *{loc['name']}*\n\n{loc['description']}\n"
+    text = f"🌍 <b>{loc['name']}</b>\n\n{loc['description']}\n"
 
     if creatures:
-        text += "\n👁 *Ты чувствуешь присутствие:*\n"
+        text += "\n👁 <b>Здесь есть:</b>\n"
         for c in creatures:
-            text += f"  • {c['name']}\n"
+            disposition = {"hostile": "🔴", "neutral": "🟡", "friendly": "🟢"}.get(c["disposition"], "⚪")
+            text += f"  {disposition} {c['name']}\n"
 
     connections = json.loads(loc["connections"]) if isinstance(loc["connections"], str) else loc["connections"]
     if connections:
-        text += f"\n🚪 *Выходы:* {', '.join(connections)}"
+        text += f"\n🚪 <b>Выходы:</b> {len(connections)} направлений"
 
-    await ge._log_action(message.from_user.id, "look", location=user["current_location"])
-    await message.answer(text, parse_mode="Markdown")
+    await ge._log_action(callback.from_user.id, "look", location=user["current_location"])
+    await callback.message.edit_text(text, reply_markup=back_to_main_kb())
+    await callback.answer()
 
 
-@router.message(Command("locations"))
-async def cmd_locations(message: Message):
-    user = await ge.get_or_create_user(message.from_user.id)
-    db = await ge.get_db()
-    cursor = await db.execute(
-        "SELECT connections FROM locations WHERE location_id = ?",
-        (user["current_location"],)
-    )
-    loc = await cursor.fetchone()
-    connections = json.loads(loc["connections"]) if loc and isinstance(loc["connections"], str) else (loc["connections"] if loc else [])
+# ──────────────────────────────────────────────
+#  Карта / Движение
+# ──────────────────────────────────────────────
 
-    text = "🗺 *Доступные направления:*\n\n"
+@router.callback_query(F.data == "locations")
+async def cb_locations(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id)
+    loc = await ge.get_location(user["current_location"])
+    connections = json.loads(loc["connections"]) if isinstance(loc["connections"], str) else loc["connections"]
+
+    text = f"🗺 <b>Выходы из «{loc['name']}»:</b>\n\n"
     for loc_id in connections:
-        loc = await ge.get_location(loc_id)
-        if loc:
-            status = "✅" if loc["discovered"] else "❓"
-            text += f"{status} /move_{loc_id} — {loc['name']}\n"
+        target = await ge.get_location(loc_id)
+        if target:
+            status = "✅" if target["discovered"] else "❓"
+            text += f"{status} {target['name']}\n"
 
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=move_kb(connections))
+    await callback.answer()
 
 
-@router.message(Command("move"))
-async def cmd_move(message: Message):
-    parts = message.text.split()
-    if len(parts) < 2:
-        await message.answer("Куда? Используй /locations чтобы увидеть доступные направления.")
-        return
-
-    target = parts[1]
-    result = await ge.move_user(message.from_user.id, target)
+@router.callback_query(F.data.startswith("move:"))
+async def cb_move(callback: CallbackQuery):
+    target = callback.data.split(":")[1]
+    result = await ge.move_user(callback.from_user.id, target)
 
     if result["success"]:
-        text = f"🚶 Ты пришёл в *{result['name']}*\n\n{result['description']}"
+        text = f"🚶 <b>{result['name']}</b>\n\n{result['description']}"
         if result.get("first_discover"):
-            text += "\n\n⚡ *Ты первый, кто открыл эту область!*"
+            text += "\n\n⚡ <b>Ты первый, кто открыл эту область!</b>"
             await ge.discover_legend(
                 f"loc_{target}", "location",
                 result["name"], result["description"],
-                message.from_user.id
+                callback.from_user.id
             )
 
-        # Проверяем квесты на посещение локаций
-        user_quests = await ge.get_user_quests(message.from_user.id)
+        # Прогресс квестов на посещение
+        user_quests = await ge.get_user_quests(callback.from_user.id)
         for uq in user_quests:
             if uq["status"] != "active":
                 continue
             objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
             for obj in objectives:
                 if obj.get("type") == "visit" and obj.get("location") == target:
-                    await ge.update_quest_progress(
-                        message.from_user.id, uq["quest_id"], obj["id"]
-                    )
+                    await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
+
+        loc = await ge.get_location(target)
+        connections = json.loads(loc["connections"]) if isinstance(loc["connections"], str) else loc["connections"]
+        kb = move_kb(connections)
     else:
         text = result["message"]
+        kb = back_to_main_kb()
 
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
 
 
-@router.message(F.text.startswith("/move_"))
-async def cmd_move_short(message: Message):
-    target = message.text.replace("/move_", "")
-    result = await ge.move_user(message.from_user.id, target)
+# ──────────────────────────────────────────────
+#  Бой
+# ──────────────────────────────────────────────
 
-    if result["success"]:
-        text = f"🚶 Ты пришёл в *{result['name']}*\n\n{result['description']}"
-        if result.get("first_discover"):
-            text += "\n\n⚡ *Ты первый, кто открыл эту область!*"
+@router.callback_query(F.data == "fight_menu")
+async def cb_fight_menu(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id)
+    creatures = await ge.get_creatures_at_location(user["current_location"])
+
+    hostile = [c for c in creatures if c["disposition"] in ("hostile", "neutral") and c["is_alive"]]
+
+    if not hostile:
+        text = "⚔️ <b>Здесь никого нет для боя.</b>\n\nПопробуй осмотреться или перейти в другое место."
+        kb = back_to_main_kb()
     else:
-        text = result["message"]
+        text = "⚔️ <b>Кого атакуем?</b>\n\n"
+        for c in hostile:
+            disposition = "🔴" if c["disposition"] == "hostile" else "🟡"
+            text += f"{disposition} {c['name']} — HP: {c['hp']}, Атака: {c['attack']}\n"
+        kb = combat_kb(callback.from_user.id, hostile)
 
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
 
 
-@router.message(Command("inventory"))
-async def cmd_inventory(message: Message):
-    items = await ge.get_inventory(message.from_user.id)
+@router.callback_query(F.data.startswith("attack:"))
+async def cb_attack(callback: CallbackQuery):
+    creature_id = callback.data.split(":")[1]
+    result = await ge.start_combat(callback.from_user.id, creature_id)
+
+    if not result["success"]:
+        await callback.message.edit_text(result["message"], reply_markup=back_to_main_kb())
+        await callback.answer()
+        return
+
+    combat = await ge.resolve_combat(callback.from_user.id, creature_id)
+
+    text = f"⚔️ <b>Бой с {result['creature']['name']}</b>\n\n"
+
+    for round_data in combat.get("rounds", [])[:5]:
+        ud = round_data.get("user_damage", 0)
+        cd = round_data.get("creature_damage", 0)
+        text += f"Раунд {round_data['round']}: -{ud} HP, -{cd} HP\n"
+
+    text += f"\n❤️ Твоё HP: {combat['user_hp']}\n"
+
+    if combat["outcome"] == "victory":
+        text += f"\n🏆 <b>ПОБЕДА!</b>\n+{combat['xp_gained']} XP"
+        if combat["loot"]:
+            text += f"\n📦 Лут: {', '.join(combat['loot'])}"
+    elif combat["outcome"] == "defeat":
+        text += "\n💀 <b>ПОРАЖЕНИЕ</b>\nТы очнулся... где-то раньше."
+    else:
+        text += "\n🤝 <b>НИЧЬЯ</b>\nОба отступили."
+
+    await callback.message.edit_text(text, reply_markup=back_to_main_kb())
+    await callback.answer()
+
+
+# ──────────────────────────────────────────────
+#  Инвентарь
+# ──────────────────────────────────────────────
+
+@router.callback_query(F.data == "inventory")
+async def cb_inventory(callback: CallbackQuery):
+    items = await ge.get_inventory(callback.from_user.id)
 
     if not items:
-        text = "🎒 *Инвентарь пуст*\n\nТы ничего не несёшь. Пока."
+        text = "🎒 <b>Инвентарь пуст</b>\n\nТы ничего не несёшь. Пока."
     else:
-        text = "🎒 *Твой инвентарь:*\n\n"
+        text = "🎒 <b>Твой инвентарь:</b>\n\n"
         for item in items:
             magic = " ✨" if item["is_magic"] else ""
-            rarity = f" [{item['rarity']}]" if item.get("rarity") else ""
-            text += f"• {item['name'] or item['item_id']} x{item['quantity']}{magic}{rarity}\n"
+            rarity_map = {"common": "", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+            rarity = rarity_map.get(item.get("rarity", ""), "")
+            name = item.get("name") or item["item_id"]
+            text += f"• {rarity} {name} x{item['quantity']}{magic}\n"
 
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=back_to_main_kb())
+    await callback.answer()
 
 
-@router.message(Command("status"))
-async def cmd_status(message: Message):
-    user = await ge.get_or_create_user(message.from_user.id)
+# ──────────────────────────────────────────────
+#  Статус
+# ──────────────────────────────────────────────
+
+@router.callback_query(F.data == "status")
+async def cb_status(callback: CallbackQuery):
+    user = await ge.get_or_create_user(callback.from_user.id)
     action_count = await ge.count_actions()
-    user_actions = await ge.get_user_actions(message.from_user.id, limit=1000000)
+    user_actions = await ge.get_user_actions(callback.from_user.id, limit=1000000)
     total = len(user_actions)
-
     days = user.get("days_in_mist", 0)
-    hp_bar = "❤️" * (user["hp"] // 20) + "🖤" * (5 - user["hp"] // 20)
+    xp_needed = user["level"] * 100
 
     text = (
-        f"👤 *{user['display_name']}*\n\n"
+        f"👤 <b>{user['display_name']}</b>\n\n"
         f"📍 Локация: {user['current_location']}\n"
-        f"⏰ Дней в MIST: {days}\n"
-        f"🎒 Воспоминаний: {user['memories']}\n"
-        f"⚖️ Карма: {user['karma']}\n\n"
-        f"⚔️ *Боевые характеристики:*\n"
-        f"❤️ HP: {user['hp']}/{user['max_hp']} {hp_bar}\n"
+        f"⏰ Дней в MIST: {days}\n\n"
+        f"❤️ HP: {user['hp']}/{user['max_hp']}\n"
         f"🗡 Атака: {user['attack']}\n"
         f"🛡 Защита: {user['defense']}\n"
-        f"⭐ Уровень: {user['level']} (XP: {user['xp']}/{user['level'] * 100})\n\n"
+        f"⭐ Уровень: {user['level']} (XP: {user['xp']}/{xp_needed})\n\n"
+        f"🎒 Воспоминаний: {user['memories']}\n"
+        f"⚖️ Карма: {user['karma']}\n"
         f"📝 Твоих действий: {total}\n"
-        f"🌍 Всего действий в мире: {action_count}"
+        f"🌍 Всего в мире: {action_count}"
     )
-    await message.answer(text, parse_mode="Markdown")
-
-
-@router.message(Command("actions"))
-async def cmd_actions(message: Message):
-    actions = await ge.get_user_actions(message.from_user.id, limit=10)
-
-    if not actions:
-        text = "📝 Ты ещё ничего не сделал."
-    else:
-        text = "📝 *Последние действия:*\n\n"
-        type_names = {
-            "look": "👀 осмотрелся",
-            "move": "🚶 переместился",
-            "item_gain": "📦 получил предмет",
-            "item_loss": "📭 потерял предмет",
-            "location_discover": "🗺 открыл локацию",
-            "secret_found": "🔮 нашёл тайну",
-            "legend_discover": "📚 открыл легенду",
-            "attack": "⚔️ атаковал",
-            "feed": "🍖 покормил",
-            "new_user": "✨ вошёл в MIST",
-            "combat_victory": "🏆 победил в бою",
-            "combat_defeat": "💀 проиграл бой",
-            "heal": "💚 исцелился",
-            "quest_accept": "📜 принял квест",
-            "quest_complete": "🏆 выполнил квест",
-            "whisper": "🌫 шёпот тумана",
-        }
-        for a in actions:
-            name = type_names.get(a["action_type"], a["action_type"])
-            text += f"• {name}\n"
-
-    await message.answer(text, parse_mode="Markdown")
-
-
-@router.message(Command("legends"))
-async def cmd_legends(message: Message):
-    stats = await ge.get_legend_stats()
-
-    text = (
-        "📚 *Энциклопедия MIST*\n\n"
-        f"🐾 Существа: {stats['creatures_found']} найдено\n"
-        f"🏺 Предметы: {stats['items_found']} найдено\n"
-        f"🗺 Локации: {stats['places_found']} найдено\n"
-        f"📜 Легенды: {stats['lore_found']} найдено\n\n"
-        "_Каждый первый человек, открывший нечто, навсегда вписан в историю._"
-    )
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=back_to_main_kb())
+    await callback.answer()

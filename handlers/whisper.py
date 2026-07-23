@@ -1,7 +1,6 @@
 import random
 from aiogram import Router
-from aiogram.types import Message
-from aiogram.filters import Command
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 import game_engine as ge
 
 router = Router()
@@ -9,7 +8,7 @@ router = Router()
 WHISPERS = [
     "Ты слышишь? Кто-то шепчет твоё имя...",
     "Туман сгущается. Он помнит, что ты сделал.",
-    "Где-тодалеко ломается ветка. Или это шаги?",
+    "Где-то далеко ломается ветка. Или это шаги?",
     "Они здесь. Они всегда здесь. Просто смотри.",
     "Ты не один. Ты никогда не был один.",
     "Камень под ногой тёплый. Он живой.",
@@ -32,30 +31,37 @@ WHISPERS = [
 
 async def _get_whisper_for_user(user_id: int) -> str:
     user = await ge.get_or_create_user(user_id)
-    actions = await ge.get_user_actions(user_id, limit=20)
-    karma = user.get("karma", 0)
     days = user.get("days_in_mist", 0)
+    karma = user.get("karma", 0)
 
     if days > 30:
-        base = [w for w in WHISPERS if "стар" in w or "помнишь" in w or "время" in w]
+        base = [w for w in WHISPERS if any(k in w for k in ["стар", "помнишь", "время"])]
     elif karma > 10:
-        base = [w for w in WHISPERS if "наблюдает" in w or "жёлт" in w or "помни" in w]
+        base = [w for w in WHISPERS if any(k in w for k in ["наблюдает", "ждёт", "помни"])]
     elif karma < -10:
-        base = [w for w in WHISPERS if "тени" in w or "шаги" in w or "помнишь" in w]
+        base = [w for w in WHISPERS if any(k in w for k in ["тени", "шаги", "помнишь"])]
     else:
         base = WHISPERS
 
     return random.choice(base) if base else random.choice(WHISPERS)
 
 
-@router.message(Command("whisper"))
-async def cmd_whisper(message: Message):
-    whisper = await _get_whisper_for_user(message.from_user.id)
+def _whisper_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔮 Ещё шёпот", callback_data="whisper")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
 
-    await ge._log_action(message.from_user.id, "whisper", {"text": whisper})
+
+@router.callback_query(F.data == "whisper")
+async def cb_whisper(callback: CallbackQuery):
+    whisper_text = await _get_whisper_for_user(callback.from_user.id)
+
+    await ge._log_action(callback.from_user.id, "whisper", {"text": whisper_text})
 
     text = (
-        f"🌫 _{whisper}_\n\n"
-        "_Туман отвечает не всегда. Но когда отвечает — запоминаешь._"
+        f"🌫 <i>{whisper_text}</i>\n\n"
+        "<i>Туман отвечает не всегда. Но когда отвечает — запоминаешь.</i>"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=_whisper_kb())
+    await callback.answer()

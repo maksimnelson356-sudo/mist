@@ -19,8 +19,14 @@ async def main():
     await init_db()
     logger.info("База данных инициализирована.")
 
-    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+    me = await bot.get_me()
+    bot_username = me.username
+    logger.info(f"Бот: @{bot_username}")
+
     dp = Dispatcher()
+
+    dp["bot_username"] = bot_username
 
     dp.include_router(game.router)
     dp.include_router(whisper.router)
