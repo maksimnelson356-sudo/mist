@@ -1,0 +1,13 @@
+[Unit]
+Description=MIST Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mist
+ExecStart=/opt/mist/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
