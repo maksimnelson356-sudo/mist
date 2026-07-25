@@ -170,7 +170,7 @@ async def cmd_start(message: Message, bot_username: str):
         "Ты просыпаешься в тумане.\n"
         "Не помнишь, как сюда попал.\n\n"
         "Туман помнит всё.\n\n"
-        f"📍 <b>{loc['name']}</b>\n"
+        f"📍 <b>{loc['name'] if loc else user['current_location']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
@@ -211,7 +211,7 @@ async def cb_revive(callback: CallbackQuery):
     if result["success"]:
         user = await services.player.get_or_create(callback.from_user.id)
         loc = await services.movement.get_location(user["current_location"])
-        text = result["message"] + f"\n\n📍 <b>{loc['name']}</b>"
+        text = result["message"] + f"\n\n📍 <b>{loc['name'] if loc else user['current_location']}</b>"
         kb = main_menu_kb()
     else:
         text = result["message"]
@@ -262,7 +262,7 @@ async def cb_main_menu(callback: CallbackQuery):
         text += "\n"
 
     text += (
-        f"📍 <b>{loc['name']}</b>\n"
+        f"📍 <b>{loc['name'] if loc else user['current_location']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
@@ -292,9 +292,9 @@ async def cb_look(callback: CallbackQuery):
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
-    text += f"🌍 <b>{loc['name']}</b>\n\n{loc['description']}\n"
+    text += f"🌍 <b>{loc['name'] if loc else user['current_location']}</b>\n\n{loc.get('description', '') if loc else ''}\n"
 
-    weather = loc.get("current_weather", "clear")
+    weather = loc.get("current_weather", "clear") if loc else "clear"
     from services.weather_system import WEATHER_STATES
     w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
     text += f"\n{w_info['icon']} <i>{w_info['name']}</i>\n"
@@ -311,7 +311,7 @@ async def cb_look(callback: CallbackQuery):
             name = g.get("name") or g["item_id"]
             text += f"  • {name} x{g['quantity']}\n"
 
-    connections = loc.get("connections", [])
+    connections = loc.get("connections", []) if loc else []
     if connections:
         text += "\n🚪 <b>Выходы:</b>\n"
         for loc_id in connections:
@@ -497,9 +497,9 @@ async def cb_pickup_all(callback: CallbackQuery):
 async def cb_locations(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
     loc = await services.movement.get_location(user["current_location"])
-    connections = loc.get("connections", [])
+    connections = loc.get("connections", []) if loc else []
 
-    text = f"🗺 <b>Выходы из «{loc['name']}»:</b>\n\n"
+    text = f"🗺 <b>Выходы из «{loc['name'] if loc else user['current_location']}»:</b>\n\n"
     for loc_id in connections:
         target = await services.movement.get_location(loc_id)
         if target:
@@ -547,7 +547,7 @@ async def cb_move(callback: CallbackQuery):
                     await services.quest.update_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
         loc = await services.movement.get_location(target)
-        connections = loc.get("connections", [])
+        connections = loc.get("connections", []) if loc else []
 
         creatures = await services.movement.get_creatures_at(target)
         ground = await services.movement.get_ground_items(target)
