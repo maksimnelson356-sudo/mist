@@ -80,7 +80,7 @@ async def main():
     logger.info("WorldEngine tick запущ (каждые 15 минут).")
 
     ecosystem_task = asyncio.create_task(
-        services.ecosystem.start_loop(interval_seconds=900)
+        services.ecosystem.start_loop(interval=900)
     )
     logger.info("EcosystemService tick запущ.")
 
