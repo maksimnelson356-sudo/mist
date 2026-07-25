@@ -1,7 +1,8 @@
 import json
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-import game_engine as ge
+from services.container import services
+from services.visuals import send_visual
 
 router = Router()
 
@@ -23,10 +24,10 @@ LOC_NAMES = {
 
 @router.callback_query(F.data == "quests")
 async def cb_quests(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    active_quests = await ge.get_user_quests(callback.from_user.id)
-    available_here = await ge.get_available_quests(callback.from_user.id, user["current_location"])
-    all_available_quests = await ge.get_available_quests(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
+    active_quests = await services.quest.get_user_quests(callback.from_user.id)
+    available_here = await services.quest.get_available(callback.from_user.id, user["current_location"])
+    all_available_quests = await services.quest.get_available(callback.from_user.id)
 
     active_ids = {q["quest_id"] for q in active_quests if q["status"] == "active"}
     available_quest_ids = {q["quest_id"] for q in (available_here or [])}
@@ -65,6 +66,14 @@ async def cb_quests(callback: CallbackQuery):
 
     buttons = []
 
+    seasonal = await services.seasonal_quest.get_seasonal_quests(
+        services.world_engine._state["season"] if services.world_engine._state else "spring"
+    )
+    if seasonal:
+        text += "\n🌸 <b>Сезонные квесты:</b>\n"
+        for sq in seasonal:
+            text += f"  🌸 {sq['name']}\n"
+
     if available_here:
         for q in available_here:
             buttons.append([InlineKeyboardButton(
@@ -84,16 +93,22 @@ async def cb_quests(callback: CallbackQuery):
                     progress.get(obj["id"], {}).get("current", 0) >= obj["target"]
                     for obj in objectives
                 )
-                next_step = await ge.find_next_step(user["current_location"], q_loc)
+                next_step = await services.movement.find_next_step(user["current_location"], q_loc)
                 if not next_step:
                     continue
                 loc_name = LOC_NAMES.get(q_loc, q_loc)
                 next_name = LOC_NAMES.get(next_step, next_step)
                 if all_done:
-                    buttons.append([InlineKeyboardButton(
-                        text=f"🏆 Сдать: {q['name']} → {next_name}",
-                        callback_data=f"move:{next_step}"
-                    )])
+                    if q_loc == user["current_location"]:
+                        buttons.append([InlineKeyboardButton(
+                            text=f"🏆 Сдать: {q['name']}",
+                            callback_data=f"turnin:{q['quest_id']}"
+                        )])
+                    else:
+                        buttons.append([InlineKeyboardButton(
+                            text=f"🏆 Сдать: {q['name']} → {next_name}",
+                            callback_data=f"move:{next_step}"
+                        )])
                 else:
                     buttons.append([InlineKeyboardButton(
                         text=f"🚶 {q['name']} → {next_name}",
@@ -108,7 +123,7 @@ async def cb_quests(callback: CallbackQuery):
                 break
             q_loc = q["location"]
             if q_loc not in nav_targets and q_loc != user["current_location"]:
-                next_step = await ge.find_next_step(user["current_location"], q_loc)
+                next_step = await services.movement.find_next_step(user["current_location"], q_loc)
                 if not next_step:
                     continue
                 loc_name = LOC_NAMES.get(q_loc, q_loc)
@@ -120,18 +135,40 @@ async def cb_quests(callback: CallbackQuery):
                 nav_targets.add(q_loc)
                 shown += 1
 
-    buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
+        buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await callback.answer()
 
 
+# -------------------------------------------------
+# Import визуальных ресурсов
+# -------------------------------------------------
+from services.visuals import send_visual
+
+
 @router.callback_query(F.data.startswith("accept:"))
 async def cb_accept(callback: CallbackQuery):
     quest_id = callback.data.split(":")[1]
-    result = await ge.accept_quest(callback.from_user.id, quest_id)
+    result = await services.quest.accept(callback.from_user.id, quest_id)
 
     text = result["message"]
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
+
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+    # Визуал: квест принят
+    await send_visual(callback, key="quest_accept", caption="📜 Квест принят!")
+async def cb_turnin(callback: CallbackQuery):
+    quest_id = callback.data.split(":")[1]
+    result = await services.quest.complete(callback.from_user.id, quest_id)
+
+    text = result.get("message", "Квест сдан!")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
