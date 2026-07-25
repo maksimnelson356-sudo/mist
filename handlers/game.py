@@ -207,6 +207,7 @@ async def cb_revive(callback: CallbackQuery):
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
+    await services.player.update_last_seen(callback.from_user.id)
 
     if not user["is_alive"]:
         text = "<pre>💀\n🕯️👁🕯️\n💀</pre>\n💀 <b>Ты мёртв.</b>\n\nТуман накрыл тебя."
@@ -217,11 +218,33 @@ async def cb_main_menu(callback: CallbackQuery):
         await callback.answer()
         return
 
+    catchup = await services.player.get_catchup_summary(callback.from_user.id)
+
     loc = await services.movement.get_location(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+
+    if catchup:
+        season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
+        season = season_names.get(catchup["season"], catchup["season"])
+        text += f"⏰ <b>Пока тебя не было: {catchup['game_days_away']} дн.</b>\n"
+        text += f"🌍 Мир: День {catchup['world_day']}, {season}\n"
+
+        if catchup.get("events"):
+            text += "\n<b>Что произошло:</b>\n"
+            for ev in catchup["events"][:5]:
+                text += f"  📜 {ev['name']}\n"
+        else:
+            text += "\nНичего особенного не случилось.\n"
+
+        if catchup.get("location"):
+            loc_data = catchup["location"]
+            text += f"\n📍 Локация: {loc_data['name']}\n"
+            text += f"  ⚠️ Опасность: {loc_data['danger_level']} | 🍖 Еда: {loc_data['food_supply']}\n"
+        text += "\n"
+
     text += (
         f"📍 <b>{loc['name']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"

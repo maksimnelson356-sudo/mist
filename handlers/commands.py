@@ -10,6 +10,7 @@ router = Router()
 
 COMMANDS_INFO = {
     "help": "Показать список команд",
+    "news": "Новости мира за сегодня",
     "quests": "Посмотреть доступные квесты",
     "shop": "Открыть магазин",
     "inventory": "Посмотреть инвентарь",
@@ -21,6 +22,7 @@ COMMANDS_INFO = {
 
 COMMANDS_DESC = {
     "help": "Список всех доступных команд.",
+    "news": "Ежедневная газета мира: что произошло, пока тебя не было.",
     "quests": "Посмотреть активные квесты и доступные задания.",
     "shop": "Купить или продать предметы в магазине.",
     "inventory": "Переглянути свій інвентар і предмети.",
@@ -32,6 +34,7 @@ COMMANDS_DESC = {
 
 COMMANDS_EXAMPLES = {
     "help": "<code>/help</code> - показать все команды",
+    "news": "<code>/news</code> - показать новости мира",
     "quests": "<code>/quests</code> - показать квесты",
     "shop": "<code>/shop</code> - открыть магазин",
     "inventory": "<code>/inventory</code> - показать инвентарь",
@@ -77,6 +80,7 @@ async def cmd_start_general(message: Message):
         return
 
     user = await services.player.get_or_create(message.from_user.id, message.from_user.username)
+    await services.player.update_last_seen(message.from_user.id)
 
     if not user["is_alive"]:
         text = (
@@ -91,6 +95,8 @@ async def cmd_start_general(message: Message):
         await message.answer(text, reply_markup=kb)
         return
 
+    catchup = await services.player.get_catchup_summary(message.from_user.id)
+
     loc = await services.movement.get_location(user["current_location"])
 
     from handlers.game import main_menu_kb
@@ -99,6 +105,30 @@ async def cmd_start_general(message: Message):
         "Ты просыпаешься в тумане.\n"
         "Не помнишь, как сюда попал.\n\n"
         "Туман помнит всё.\n\n"
+    )
+
+    if catchup:
+        season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
+        season = season_names.get(catchup["season"], catchup["season"])
+        text += f"⏰ <b>Пока тебя не было: {catchup['game_days_away']} дн.</b>\n"
+        text += f"🌍 Мир: День {catchup['world_day']}, {season}\n"
+        text += f"🌡 Давление: {catchup['world_pressure']}\n"
+        text += ""
+
+        if catchup.get("events"):
+            text += "\n<b>Что произошло:</b>\n"
+            for ev in catchup["events"][:5]:
+                text += f"  📜 {ev['name']}\n"
+        else:
+            text += "\nНичего особенного не случилось.\n"
+
+        if catchup.get("location"):
+            loc_data = catchup["location"]
+            text += f"\n📍 Твоя локация: {loc_data['name']}\n"
+            text += f"  ⚠️ Опасность: {loc_data['danger_level']} | 🍖 Еда: {loc_data['food_supply']}\n"
+        text += "\n"
+
+    text += (
         f"📍 <b>{loc['name']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
@@ -386,3 +416,64 @@ async def cmd_achievements(message: Message):
         reply_markup=kb,
         parse_mode="HTML"
     )
+
+
+@router.message(Command("news"))
+async def cmd_news(message: Message):
+    if message.chat.type != "private":
+        return
+
+    news = await services.world_engine.get_news()
+    day = news["day"]
+    season = news["season"]
+    season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
+    season_name = season_names.get(season, season)
+
+    lines = [f"📰 <b>Новости мира — День {day}, {season_name}</b>", ""]
+
+    events = news.get("events", [])
+    if events:
+        for ev in events:
+            icon = "🔥" if "fire" in ev["event_type"] else \
+                   "🐺" if "wolf" in ev["event_type"] else \
+                   "🌾" if "harvest" in ev["event_type"] else \
+                   "☀️" if "drought" in ev["event_type"] else \
+                   "🔮" if "altar" in ev["event_type"] or "ruin" in ev["event_type"] else \
+                   "💀" if "undead" in ev["event_type"] else \
+                   "🚢" if "ship" in ev["event_type"] else \
+                   "⚔️" if "war" in ev["event_type"] or "bandit" in ev["event_type"] else \
+                   "🌫" if "fog" in ev["event_type"] else \
+                   "🌸" if "spring" in ev["event_type"] else \
+                   "🏮" if "lantern" in ev["event_type"] else \
+                   "☄️" if "meteorite" in ev["event_type"] else \
+                   "☠️" if "plague" in ev["event_type"] else \
+                   "🎭" if "merchant" in ev["event_type"] else \
+                   "🌊" if "flood" in ev["event_type"] else \
+                   "🏜" if "drought" in ev["event_type"] else "📜"
+
+            status = "✅" if ev.get("is_active") else "⏹"
+            lines.append(f"{icon} {status} <b>{ev['name']}</b>")
+            lines.append(f"   <i>{ev['description']}</i>")
+            lines.append("")
+    else:
+        lines.append("Здесь ничего особенного не произошло.")
+        lines.append("")
+
+    active = news.get("active", [])
+    if active:
+        lines.append("<b>📊 Активные события:</b>")
+        for a in active[:5]:
+            lines.append(f"  • {a['name']}")
+        lines.append("")
+
+    dangerous = news.get("dangerous_locations", [])
+    if dangerous:
+        lines.append("<b>⚠️ Самые опасные места:</b>")
+        for d in dangerous[:3]:
+            lines.append(f"  • {d['name']} — ⚠️ {d['danger_level']}")
+        lines.append("")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
+    ])
+    await message.answer("\n".join(lines), reply_markup=kb)

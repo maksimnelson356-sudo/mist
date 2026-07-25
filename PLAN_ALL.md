@@ -1,8 +1,51 @@
-# MIST — Полный план реализации (MIST-001 → MIST-030)
+# MIST — Полный план реализации (MIST-001 → MIST-030 + Genesis)
 
-**Дата**: 2026-07-24
-**Статус**: ✅ Все 30 модулей выполнены
+**Дата**: 2026-07-25
+**Статус**: ✅ Все 30 модулей + Genesis (G1-G6) + Phase 2 (Living World)
 **Тесты**: 72/72 проходят
+
+---
+
+## Phase 2 — Living World
+
+Мир оживает: NPC ходят, экосистема работает, гильдии захватывают, артефакты растут.
+
+| Компонент | Описание | Статус |
+|---|---|---|
+| EcosystemService | Цепи питания, миграция, спавн | ✅ |
+| NPC-реакция | Побег при пожаре, прячутся при эпидемии | ✅ |
+| GuildTerritory | Захват локаций, снижение опасности | ✅ |
+| ArtifactService | Артефакты с растущей историей | ✅ |
+| NPC-мigrationBuilder | Использует игровое время | ✅ |
+
+### Что работает (Genesis G1-G6) ✅
+
+- **WorldStateModel** — пульс мира в БД: день, час, сезон, давление, процветание
+- **WorldEngine.tick()** — каждые 15 минут: +150 игровых минут, смена дня/сезона
+- **Параметры локаций** — 28 локаций с danger, food, tree_density, magic, creatures, population, wealth
+- **Погода по локациям** — Markov-цепь с seasonal bias (зимой чаще снег)
+- **Сезонные модификаторы** — зимой food -25%, летом food +15%
+- **Хроника** — записи при новом дне и смене сезона
+- **25 определений событий** — лесные пожары, миграция волков, засуха, эпидемии, аномалии, артефакты...
+- **Цепные реакции** — лесной пожар → беженцы, засуха → голод → бандиты
+- **Вероятностная генерация** — события появляются с шансом 1-12% за тик по региону
+- **Эффекты на локации** — каждое событие меняет параметры (danger, food, wealth, magic...)
+- **Хранение в БД** — WorldEventRecordModel с start_day, end_day, chain_events
+- **World pressure** — пересчёт давления мира по количеству активных событий
+- **/news** — ежедневная газета: события дня, активные процессы, опасные локации
+- **Catch-up** — при входе: «Пока тебя не было: 3 дн. Лесной пожар, засуха...»
+- **Тишина мира** — дни без событий: «Ничего особенного не произошло.»
+
+### Масштаб
+
+| Компонент | До Genesis | После Genesis |
+|---|---|---|
+| SQLAlchemy модели | 23 | 25 |
+| Сервисы | 30 | 32 |
+| Параметры локаций | 0 | 10 |
+| WorldEngine tick | — | ✅ (15 мин) |
+| Определения событий | 0 | 25 |
+| Команды бота | 8 | 9 |
 
 ---
 
@@ -47,8 +90,8 @@
 
 | Компонент | Количество |
 |---|---|
-| SQLAlchemy модели | 23 |
-| Сервисы | 30 |
+| SQLAlchemy модели | 24 |
+| Сервисы | 31 |
 | Хэндлеры | 16 |
 | UI компоненты | 3 |
 | Утилиты | 3 |
@@ -57,6 +100,7 @@
 | Достижения | 33 |
 | Тесты | 72 |
 | Языка локализации | 2 |
+| Параметры локаций | 10 |
 
 ---
 
@@ -76,7 +120,7 @@ mist-master/
 │
 ├── database/
 │   ├── base.py
-│   ├── models/                       # 23 модели
+│   ├── models/                       # 24 модели
 │   │   ├── user.py                   # gold, gems, tokens
 │   │   ├── continent.py, region.py, location.py, poi.py
 │   │   ├── creature.py, npc.py, npc_memory.py, exploration.py
@@ -85,10 +129,11 @@ mist-master/
 │   │   ├── guild.py, trade.py
 │   │   ├── achievement.py, daily.py, shop.py, crafting.py
 │   │   ├── chronicle.py, analytics.py
+│   │   ├── world_state.py            # пульс мира (Genesis)
 │   │   └── ...
 │   └── repositories/                 # 18 репозиториев
 │
-├── services/                         # 30 сервисов
+├── services/                         # 31 сервис
 │   ├── container.py                  # ServiceContainer
 │   ├── chronicle_service.py
 │   ├── player_service.py, profile_service.py, reputation_service.py
@@ -101,6 +146,7 @@ mist-master/
 │   ├── exploration_service.py, catalog_service.py
 │   ├── economy_service.py, admin_service.py, analytics_service.py, save_service.py
 │   ├── weather_system.py, time_system.py, world_event_system.py
+│   ├── world_engine.py               # ядро живого мира (Genesis)
 │   └── world_generator.py
 │
 ├── handlers/                         # 16 хэндлеров

@@ -65,6 +65,68 @@ class PlayerService:
             await db.commit()
             break
 
+    async def get_catchup_summary(self, user_id: int) -> dict | None:
+        user = await self.get(user_id)
+        if not user or not user.get("last_seen"):
+            return None
+
+        from services.world_engine import WorldEngine
+        async for db in get_db():
+            result = await db.execute(
+                select(UserModel).where(UserModel.user_id == user_id)
+            )
+            db_user = result.scalar_one_or_none()
+            if not db_user:
+                return None
+
+            last_seen = db_user.last_seen
+            if last_seen is None:
+                return None
+
+            from datetime import datetime, timezone
+            now = datetime.now(timezone.utc)
+            diff = now - last_seen
+            hours_away = diff.total_seconds() / 3600
+
+            if hours_away < 24:
+                return None
+
+            game_days_away = max(1, int(hours_away / 24))
+
+            result = await db.execute(
+                text("SELECT game_day, season, world_pressure, prosperity, chaos "
+                     "FROM world_state LIMIT 1")
+            )
+            world = result.mappings().first()
+            if not world:
+                return None
+
+            result = await db.execute(
+                text("SELECT name, description, region_id, start_day "
+                     "FROM world_event_records "
+                     "WHERE start_day > :start_day AND start_day <= :current_day "
+                     "ORDER BY start_day LIMIT 10"),
+                {"start_day": world["game_day"] - game_days_away, "current_day": world["game_day"]},
+            )
+            events = [dict(row) for row in result.mappings().all()]
+
+            result = await db.execute(
+                text("SELECT name, danger_level, food_supply, current_weather "
+                     "FROM locations WHERE id = :loc_id"),
+                {"loc_id": user["current_location"]},
+            )
+            loc = result.mappings().first()
+
+            return {
+                "hours_away": int(hours_away),
+                "game_days_away": game_days_away,
+                "world_day": world["game_day"],
+                "season": world["season"],
+                "world_pressure": world["world_pressure"],
+                "events": events,
+                "location": dict(loc) if loc else None,
+            }
+
     async def revive(self, user_id: int) -> dict:
         async for db in get_db():
             stmt = select(UserModel).where(UserModel.user_id == user_id)
