@@ -131,3 +131,19 @@ class CraftingService:
             "xp_reward": row.xp_reward,
             "is_active": row.is_active,
         }
+
+    async def get_history(self, user_id: int, limit: int = 10) -> list:
+        async for db in get_db():
+            stmt = (
+                select(UserCraftingModel)
+                .where(UserCraftingModel.user_id == user_id)
+                .order_by(UserCraftingModel.id.desc())
+                .limit(limit)
+            )
+            result = await db.execute(stmt)
+            rows = result.scalars().all()
+            return [
+                {"recipe_id": r.recipe_id, "times_crafted": r.times_crafted}
+                for r in rows
+            ]
+        return []

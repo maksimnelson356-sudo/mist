@@ -79,6 +79,8 @@ async def cb_guild_menu(callback: CallbackQuery):
         buttons = [
             [InlineKeyboardButton(text="👥 Участники", callback_data="guild_members")],
             [InlineKeyboardButton(text="💰 Пожертвовать", callback_data="guild_donate_menu")],
+            [InlineKeyboardButton(text="📦 Склад и казна", callback_data="guild_ext_menu")],
+            [InlineKeyboardButton(text="🗺️ Территории", callback_data="territory_menu")],
             [InlineKeyboardButton(text="🚪 Покинуть", callback_data="guild_leave")],
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
         ]

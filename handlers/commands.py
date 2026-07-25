@@ -74,68 +74,6 @@ def _format_achievement(ach: dict, user_data) -> str:
             return f"⬜ {ach['icon']} {ach['name']} — {ach['description']}"
 
 
-@router.message(Command("start"))
-async def cmd_start_general(message: Message):
-    if message.chat.type != "private":
-        return
-
-    user = await services.player.get_or_create(message.from_user.id, message.from_user.username)
-    await services.player.update_last_seen(message.from_user.id)
-
-    if not user["is_alive"]:
-        text = (
-            "<pre>💀\n🕯️👁🕯️\n💀</pre>\n"
-            "💀 <b>Ты мертв.</b>\n\n"
-            "Туман накрыл тебя. Но он не отпускает.\n"
-            "Ты чувствуешь — ты ещё нужен."
-        )
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
-        ])
-        await message.answer(text, reply_markup=kb)
-        return
-
-    catchup = await services.player.get_catchup_summary(message.from_user.id)
-
-    loc = await services.movement.get_location(user["current_location"])
-
-    from handlers.game import main_menu_kb
-    text = (
-        "🌫 <b>Добро пожаловать в MIST</b>\n\n"
-        "Ты просыпаешься в тумане.\n"
-        "Не помнишь, как сюда попал.\n\n"
-        "Туман помнит всё.\n\n"
-    )
-
-    if catchup:
-        season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
-        season = season_names.get(catchup["season"], catchup["season"])
-        text += f"⏰ <b>Пока тебя не было: {catchup['game_days_away']} дн.</b>\n"
-        text += f"🌍 Мир: День {catchup['world_day']}, {season}\n"
-        text += f"🌡 Давление: {catchup['world_pressure']}\n"
-        text += ""
-
-        if catchup.get("events"):
-            text += "\n<b>Что произошло:</b>\n"
-            for ev in catchup["events"][:5]:
-                text += f"  📜 {ev['name']}\n"
-        else:
-            text += "\nНичего особенного не случилось.\n"
-
-        if catchup.get("location"):
-            loc_data = catchup["location"]
-            text += f"\n📍 Твоя локация: {loc_data['name']}\n"
-            text += f"  ⚠️ Опасность: {loc_data['danger_level']} | 🍖 Еда: {loc_data['food_supply']}\n"
-        text += "\n"
-
-    text += (
-        f"📍 <b>{loc['name']}</b>\n"
-        f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
-        f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
-    )
-    await message.answer(text, reply_markup=main_menu_kb())
-
-
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     if message.chat.type != "private":
@@ -477,3 +415,26 @@ async def cmd_news(message: Message):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
     ])
     await message.answer("\n".join(lines), reply_markup=kb)
+
+
+@router.callback_query(F.data == "commands")
+async def cb_commands(callback: CallbackQuery):
+    text = "🤖 <b>Команды MIST</b>\n\n"
+
+    text += "<b>Основные команды:</b>\n"
+    for cmd, desc in COMMANDS_INFO.items():
+        text += f"  • <code>/{cmd}</code> — {desc}\n"
+
+    text += "\n<b>Примеры использования:</b>\n"
+    for cmd, example in COMMANDS_EXAMPLES.items():
+        text += f"  {example}\n"
+
+    text += "\n<b>Дополнительные возможности:</b>\n"
+    text += "  • Нажимайте кнопки в меню для быстрого доступа\n"
+    text += "  • Следите за шёпотами тумана (кнопка 🔮 Шёпот тумана)\n"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
+    ])
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()

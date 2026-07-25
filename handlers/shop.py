@@ -14,6 +14,7 @@ def _shop_main_kb(user_gold: int):
         [InlineKeyboardButton(text=f"💰 Золото: {user_gold} 🪙", callback_data="shop_balance")],
         [InlineKeyboardButton(text="🛒 Купля", callback_data="shop_buy")],
         [InlineKeyboardButton(text="💰 Продажа", callback_data="shop_sell")],
+        [InlineKeyboardButton(text="🌸 Сезонные товары", callback_data="shop_seasonal")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
 
@@ -193,3 +194,64 @@ def _is_nearby(loc1: str, loc2: str) -> bool:
         "crystal_cave": ["ancient_ruins", "underwater_cave", "ash_fields", "abandoned_mine"],
     }
     return loc2 in connections.get(loc1, []) or loc1 in connections.get(loc2, [])
+
+
+@router.callback_query(F.data == "shop_seasonal")
+async def cb_shop_seasonal(callback: CallbackQuery):
+    user = await services.player.get_or_create(callback.from_user.id)
+    season = services.world_engine.get_state().get("season", "spring")
+
+    SEASON_NAMES = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
+    SEASON_ICONS = {"spring": "🌸", "summer": "☀️", "autumn": "🍂", "winter": "❄️"}
+
+    items = await services.shop.get_seasonal_items(season)
+
+    text = f"{SEASON_ICONS.get(season, '')} <b>Сезонные товары — {SEASON_NAMES.get(season, season)}</b>\n\n"
+
+    buttons = []
+    for item in items:
+        text += f"• <b>{item['name']}</b> — {item['price']} 🪙\n  <i>{item['description']}</i>\n"
+        can_buy = user["gold"] >= item["price"]
+        icon = "✅" if can_buy else "❌"
+        buttons.append([InlineKeyboardButton(
+            text=f"{icon} {item['name']} ({item['price']} 🪙)",
+            callback_data=f"shop_buy_seasonal:{item['item_id']}"
+        )])
+
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="shop")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("shop_buy_seasonal:"))
+async def cb_shop_buy_seasonal(callback: CallbackQuery):
+    item_id = callback.data.split(":", 1)[1]
+    user = await services.player.get_or_create(callback.from_user.id)
+
+    season = services.world_engine.get_state().get("season", "spring")
+    items = await services.shop.get_seasonal_items(season)
+    item = next((i for i in items if i["item_id"] == item_id), None)
+
+    if not item:
+        await callback.answer("Товар не найден.", show_alert=True)
+        return
+
+    if user["gold"] < item["price"]:
+        await callback.answer(f"Нужно {item['price']} 🪙, у тебя {user['gold']} 🪙", show_alert=True)
+        return
+
+    from sqlalchemy import update
+    from database.base import get_db as _get_db
+    from database.models.user import UserModel
+
+    async for db in _get_db():
+        await db.execute(
+            update(UserModel).where(UserModel.user_id == callback.from_user.id).values(gold=user["gold"] - item["price"])
+        )
+        await db.commit()
+        break
+
+    await services.inventory.add(callback.from_user.id, item_id)
+
+    await callback.answer(f"✅ Купил «{item['name']}» за {item['price']} 🪙", show_alert=True)
+    await cb_shop(callback)

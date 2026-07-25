@@ -11,6 +11,26 @@ from database.models.inventory import InventoryModel
 from domain.events import EventType, Importance
 
 
+CLASS_QUESTS = {
+    "warrior": [
+        {"quest_id": "warrior_trial", "name": "Испытание воина", "description": "Победи 5 врагов в ближнем бою.", "location": "dark_forest", "objectives": [{"id": "kill_5", "type": "kill", "target": 5, "description": "Убить 5 врагов"}], "reward_xp": 100, "reward_gold": 50},
+        {"quest_id": "warrior_boss", "name": "Большой бой", "description": "Победи любого босса.", "location": "any", "objectives": [{"id": "kill_boss", "type": "kill_boss", "target": 1, "description": "Убить босса"}], "reward_xp": 300, "reward_gold": 200},
+    ],
+    "mage": [
+        {"quest_id": "mage_arcane", "name": "Арканы магии", "description": "Найди 3 артефакта.", "location": "any", "objectives": [{"id": "find_3", "type": "find_artifact", "target": 3, "description": "Найти 3 артефакта"}], "reward_xp": 150, "reward_gold": 100},
+        {"quest_id": "mage_lib", "name": "Библиотека эхов", "description": "Посети Библиотеку эхов.", "location": "library_of_echoes", "objectives": [{"id": "visit_lib", "type": "visit", "location": "library_of_echoes", "target": 1, "description": "Посетить Библиотеку эхов"}], "reward_xp": 100, "reward_gold": 75},
+    ],
+    "scout": [
+        {"quest_id": "scout_explore", "name": "Первооткрыватель", "description": "Открой 5 новых локаций.", "location": "any", "objectives": [{"id": "explore_5", "type": "discover", "target": 5, "description": "Открыть 5 локаций"}], "reward_xp": 120, "reward_gold": 80},
+        {"quest_id": "scout_night", "name": "Ночной странник", "description": "Выживи в ночном путешествии.", "location": "any", "objectives": [{"id": "survive_night", "type": "survive_night", "target": 1, "description": "Выжить ночью"}], "reward_xp": 100, "reward_gold": 60},
+    ],
+    "craftsman": [
+        {"quest_id": "craft_master", "name": "Мастер ремесла", "description": "Скрафти 5 предметов.", "location": "any", "objectives": [{"id": "craft_5", "type": "craft", "target": 5, "description": "Скрафти 5 предметов"}], "reward_xp": 100, "reward_gold": 120},
+        {"quest_id": "craft_gather", "name": "Сбор ресурсов", "description": "Собери 10 ресурсов.", "location": "any", "objectives": [{"id": "gather_10", "type": "collect", "target": 10, "description": "Собрать 10 ресурсов"}], "reward_xp": 80, "reward_gold": 100},
+    ],
+}
+
+
 class QuestService:
 
     def __init__(self, chronicle, user_service):
@@ -47,6 +67,39 @@ class QuestService:
                 if q.quest_id in completed_ids and not q.is_repeating:
                     continue
                 available.append(self._quest_to_dict(q))
+            return available
+        return []
+
+    async def get_class_quests(self, user_id: int) -> list:
+        user = await self.user_service.get(user_id)
+        if not user:
+            return []
+
+        player_class = user.get("player_class", "warrior")
+        quests = CLASS_QUESTS.get(player_class, [])
+
+        async for db in get_db():
+            stmt_active = select(UserQuestModel.quest_id).where(
+                UserQuestModel.user_id == user_id,
+                UserQuestModel.status == "active",
+            )
+            result_active = await db.execute(stmt_active)
+            active_ids = {r.quest_id for r in result_active.all()}
+
+            stmt_completed = select(UserQuestModel.quest_id).where(
+                UserQuestModel.user_id == user_id,
+                UserQuestModel.status == "completed",
+            )
+            result_completed = await db.execute(stmt_completed)
+            completed_ids = {r.quest_id for r in result_completed.all()}
+
+            available = []
+            for q in quests:
+                if q["quest_id"] in active_ids:
+                    continue
+                if q["quest_id"] in completed_ids:
+                    continue
+                available.append(q)
             return available
         return []
 
@@ -195,6 +248,13 @@ class QuestService:
                     metadata={"quest_id": quest_id, "rewards": rewards},
                 )
 
+                from services.container import services
+                await services.analytics.track(
+                    "quest_completed",
+                    user_id=user_id,
+                    data={"quest_id": quest_id, "rewards": rewards},
+                )
+
                 msg = "🏆 <b>Квест выполнен</b>\n\n"
                 msg += f"📜 <b>{quest.name}</b>!"
                 if "xp" in rewards:
@@ -206,6 +266,85 @@ class QuestService:
                 uq.progress = json.dumps(progress)
                 await db.commit()
                 return {"success": True, "completed": False}
+        return {"success": False, "message": "Ошибка базы данных."}
+
+    async def complete(self, user_id: int, quest_id: str) -> dict:
+        async for db in get_db():
+            stmt = select(UserQuestModel).where(
+                UserQuestModel.user_id == user_id,
+                UserQuestModel.quest_id == quest_id,
+                UserQuestModel.status == "active",
+            )
+            result = await db.execute(stmt)
+            uq = result.scalar_one_or_none()
+            if not uq:
+                return {"success": False, "message": "Квест не найден или уже завершён."}
+
+            q_stmt = select(QuestModel).where(QuestModel.quest_id == quest_id)
+            q_result = await db.execute(q_stmt)
+            quest = q_result.scalar_one_or_none()
+            if not quest:
+                return {"success": False, "message": "Реализация квеста не найдена."}
+
+            progress = json.loads(uq.progress) if isinstance(uq.progress, str) else uq.progress
+            objectives = json.loads(quest.objectives) if isinstance(quest.objectives, str) else quest.objectives
+
+            all_done = all(
+                progress.get(obj["id"], {}).get("current", 0) >= obj["target"]
+                for obj in objectives
+            )
+            if not all_done:
+                return {"success": False, "message": "Цели ещё не выполнены."}
+
+            rewards = json.loads(quest.rewards) if isinstance(quest.rewards, str) else quest.rewards
+            user_stmt = select(UserModel).where(UserModel.user_id == user_id)
+            user_result = await db.execute(user_stmt)
+            user = user_result.scalar_one_or_none()
+            if not user:
+                return {"success": False, "message": "Игрок не найден."}
+
+            new_xp = user.xp + rewards.get("xp", 0)
+            new_gold = user.gold + rewards.get("gold", 0)
+            new_level = user.level
+            leveled = False
+            while new_xp >= new_level * 100:
+                new_level += 1
+                new_xp -= (new_level - 1) * 100
+                leveled = True
+            if leveled:
+                new_max_hp = 100 + (new_level - 1) * 15
+                new_attack = 10 + (new_level - 1) * 3
+                new_defense = 5 + (new_level - 1) * 2
+                await db.execute(
+                    update(UserModel).where(UserModel.user_id == user_id).values(
+                        level=new_level, max_hp=new_max_hp, attack=new_attack, defense=new_defense,
+                    )
+                )
+            await db.execute(
+                update(UserModel).where(UserModel.user_id == user_id).values(xp=new_xp, gold=new_gold)
+            )
+
+            for item_reward in rewards.get("items", []):
+                await self._add_item(user_id, item_reward["item_id"], item_reward.get("qty", 1), db)
+
+            uq.status = "completed"
+            uq.completed_at = datetime.utcnow()
+            await db.commit()
+
+            from services.container import services
+            await services.analytics.track(
+                "quest_completed",
+                user_id=user_id,
+                data={"quest_id": quest_id, "rewards": rewards},
+            )
+
+            msg = "🏆 <b>Квест выполнен</b>\n\n"
+            msg += f"📜 <b>{quest.name}</b>!"
+            if "xp" in rewards:
+                msg += f"\n\n+{rewards['xp']} XP"
+            if leveled:
+                msg += f"\n\n⭐ УРОВЕНЬ ПОВЫШЕН → {new_level}!"
+            return {"success": True, "completed": True, "rewards": rewards, "message": msg}
         return {"success": False, "message": "Ошибка базы данных."}
 
     async def get_user_quests(self, user_id: int) -> list:

@@ -53,13 +53,34 @@ async def cb_npc_talk(callback: CallbackQuery):
 
     await services.npc_memory.update(npc_id, callback.from_user.id, "talked")
 
+    memory = await services.npc_memory.get(npc_id, callback.from_user.id)
+    rep = memory.get("relation", 0) if memory else 0
+    if rep >= 50:
+        rel_text = "💚 Друг"
+    elif rep >= 20:
+        rel_text = "🟡 Знакомый"
+    elif rep >= 0:
+        rel_text = "⚪ Нейтральный"
+    elif rep >= -50:
+        rel_text = "🟠 Подозрительный"
+    else:
+        rel_text = "🔴 Враг"
+
+    ws = services.world_engine.get_state() or {}
+    period = services.npc_scheduler.get_current_period(ws.get("game_hour"))
+    period_names = {"night": "Ночь", "morning": "Утро", "afternoon": "День", "evening": "Вечер"}
+    period_icon = {"night": "🌙", "morning": "🌅", "afternoon": "☀️", "evening": "🌆"}
+
     text = (
         f"{result['icon']} <b>{result['name']}</b>\n"
-        f"Тип: {result['type']} | Состояние: {result['state']}\n\n"
+        f"Тип: {result['type']} | Состояние: {result['state']}\n"
+        f"Время: {period_icon.get(period, '❓')} {period_names.get(period, period)}\n"
+        f"Отношение: {rel_text} ({rep})\n\n"
         f"{result['message']}"
     )
 
     buttons = []
+    buttons.append([InlineKeyboardButton(text="💬 Поговорить", callback_data=f"dialogue_start:{npc_id}")])
     if result.get("can_trade"):
         buttons.append([InlineKeyboardButton(text="🛒 Торговать", callback_data=f"npc_trade:{npc_id}")])
     if result.get("can_give_quests"):

@@ -19,6 +19,50 @@ def _progress_bar(current: int, target: int, width: int = 10) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
+@router.callback_query(F.data == "daily_menu")
+async def cb_daily_menu(callback: CallbackQuery):
+    info = await services.daily_reward.get_info(callback.from_user.id)
+
+    streak_text = "🔥" * info["streak"] + "⬜" * (7 - info["streak"])
+    nr = info["next_reward"]
+
+    text = (
+        f"📅 <b>Ежедневные награды</b>\n\n"
+        f"🔥 Серия: {info['streak']}/7 дней\n"
+        f"{streak_text}\n\n"
+        f"📊 Всего получено: {info['total_claims']}\n"
+    )
+
+    if info["claimed_today"]:
+        text += "\n✅ Награда за сегодня получена!\n"
+        text += f"Следующая: День {info['next_day']}"
+    else:
+        text += f"\n🎁 Сегодня: День {info['next_day']}\n"
+        text += f"   {nr['message']}\n"
+
+    buttons = []
+    if not info["claimed_today"]:
+        buttons.append([InlineKeyboardButton(text="🎁 Получить награду", callback_data="daily_claim")])
+    buttons.append([InlineKeyboardButton(text="📋 Ежедневные квесты", callback_data="daily_quests")])
+    buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
+
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "daily_claim")
+async def cb_daily_claim(callback: CallbackQuery):
+    result = await services.daily_reward.claim(callback.from_user.id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📅 Награды дня", callback_data="daily_menu")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
+
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()
+
+
 @router.callback_query(F.data == "daily_quests")
 async def cb_daily_quests(callback: CallbackQuery):
     user_id = callback.from_user.id

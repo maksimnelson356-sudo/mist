@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 from collections import deque
 
@@ -8,6 +9,9 @@ from database.base import get_db
 from database.models.user import UserModel
 from database.models.location import LocationModel
 from database.models.creature import CreatureModel
+from domain.events import EventType, Importance
+
+logger = logging.getLogger("MIST.movement")
 from database.models.item import GroundItemModel
 from database.models.inventory import InventoryModel
 from database.models.poi import POIModel
@@ -49,6 +53,17 @@ class MovementService:
             if user["current_location"] not in connections and target_location not in connections:
                 return {"success": False, "message": "Ты не можешь попасть отсюда напрямую."}
 
+            night_encounter = False
+            try:
+                from services.time_system import TimeSystem
+                time_system = TimeSystem(self.chronicle)
+                if time_system.is_night():
+                    import random
+                    if random.random() < 0.15:
+                        night_encounter = True
+            except Exception as e:
+                logger.warning(f"Night encounter check error: {e}", exc_info=True)
+
             await db.execute(
                 update(UserModel)
                 .where(UserModel.user_id == user_id)
@@ -89,6 +104,7 @@ class MovementService:
                 "name": loc.name,
                 "description": loc.description,
                 "message": f"Ты прибыл в «{loc.name}».",
+                "night_encounter": night_encounter,
             }
         return {"success": False, "message": "Ошибка базы данных."}
 
@@ -221,7 +237,8 @@ class MovementService:
                 try:
                     import json as _j
                     memory_raw = _j.loads(row.memory_with_users) if isinstance(row.memory_with_users, str) else row.memory_with_users
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"NPC memory JSON parse error: {e}", exc_info=True)
                     memory_raw = {}
 
             uid_str = str(user_id)
@@ -268,6 +285,7 @@ class MovementService:
             "discovered_at": row.discovered_at,
             "connections": row.connections if isinstance(row.connections, list) else [],
             "state_data": row.state_data if isinstance(row.state_data, dict) else {},
+            "current_weather": row.current_weather or "clear",
             "is_secret": row.is_secret,
             "required_karma": row.required_karma,
         }

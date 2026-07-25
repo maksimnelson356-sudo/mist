@@ -1103,6 +1103,13 @@ async def seed():
             {"item_id": "portal_shard", "name": "Осколок портала", "description": "Фрагмент пространственного разлома. Он искрится.", "rarity": "legendary", "is_usable": False},
             {"item_id": "crystal_blade", "name": "Кристальный клинок", "description": "Клинок из кристалла. Он режет сам.", "rarity": "epic", "is_usable": True, "use_effect": {"damage": 35}},
             {"item_id": "grove_amulet", "name": "Амулет рощи", "description": "Амулет из светящегося дерева. Защищает от тьмы.", "rarity": "epic", "is_usable": True, "use_effect": {"heal": 70}},
+            # ═══ ПРОДУПИ ПИТАНИЯ ═══
+            {"item_id": "bread", "name": "Хлеб", "description": "Тёплый хлеб. Восстанавливает сытость.", "rarity": "common", "is_usable": True, "use_effect": {"hunger": 20}},
+            {"item_id": "fish", "name": "Рыба", "description": "Свежая рыба. Питательная.", "rarity": "common", "is_usable": True, "use_effect": {"hunger": 25}},
+            {"item_id": "apple", "name": "Яблоко", "description": "Спелое яблоко.", "rarity": "common", "is_usable": True, "use_effect": {"hunger": 15}},
+            {"item_id": "cheese", "name": "Сыр", "description": "Домашний сыр. Насыщает.", "rarity": "common", "is_usable": True, "use_effect": {"hunger": 30}},
+            {"item_id": "dried_meat", "name": "Сушёное мясо", "description": "Сушёное мясо для путешествий.", "rarity": "common", "is_usable": True, "use_effect": {"hunger": 35}},
+            {"item_id": "berry", "name": "Ягоды", "description": "Свежие лесные ягоды.", "rarity": "common", "is_usable": True, "use_effect": {"hunger": 10}},
         ]
 
         result = await db.execute(text("SELECT COUNT(*) FROM item_templates"))

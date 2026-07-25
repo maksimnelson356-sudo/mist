@@ -35,15 +35,30 @@ def main_menu_kb():
         [InlineKeyboardButton(text="⚔️ Бой", callback_data="fight_menu")],
         [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
         [InlineKeyboardButton(text="💚 Исцелиться", callback_data="heal")],
+        [InlineKeyboardButton(text="🍖 Поесть", callback_data="eat_food")],
         [InlineKeyboardButton(text="🎒 Инвентарь", callback_data="inventory")],
         [InlineKeyboardButton(text="🛒 Магазин", callback_data="shop")],
+        [InlineKeyboardButton(text="📊 Рынок", callback_data="market_menu")],
         [InlineKeyboardButton(text="⚒️ Крафт", callback_data="crafting_menu")],
         [InlineKeyboardButton(text="🤝 Трейдинг", callback_data="trade_menu")],
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
         [InlineKeyboardButton(text="🛡️ Снаряжение", callback_data="equipment_menu")],
-        [InlineKeyboardButton(text="👤 Статус", callback_data="status")],
+        [InlineKeyboardButton(text="🏠 Дом", callback_data="home_menu")],
+        [InlineKeyboardButton(text="🏺 Артефакты", callback_data="artifact_menu")],
+        [InlineKeyboardButton(text="💀 Боссы", callback_data="boss_menu")],
+        [InlineKeyboardButton(text="🐉 Рейды", callback_data="raid_menu")],
+        [InlineKeyboardButton(text="🎭 События", callback_data="event_menu")],
+        [InlineKeyboardButton(text="⚔️ Войны", callback_data="war_menu")],
+        [InlineKeyboardButton(text="👤 Профиль", callback_data="profile")],
+        [InlineKeyboardButton(text="💰 Баланс", callback_data="balance_menu")],
+        [InlineKeyboardButton(text="📖 Каталог", callback_data="catalog_menu")],
+        [InlineKeyboardButton(text="📜 Хроника", callback_data="world_chronicle")],
+        [InlineKeyboardButton(text="📅 Награды дня", callback_data="daily_menu")],
+        [InlineKeyboardButton(text="⚔️ Класс", callback_data="class_menu")],
+        [InlineKeyboardButton(text="🏴 Фракции", callback_data="faction_menu")],
         [InlineKeyboardButton(text="🔮 Шёпот тумана", callback_data="whisper")],
         [InlineKeyboardButton(text="🏆 Энциклопедия", callback_data="legends")],
+        [InlineKeyboardButton(text="📊 Лидерборды", callback_data="leaderboard_menu")],
         [InlineKeyboardButton(text="⚔️ PvP Арена", callback_data="pvp_menu")],
         [InlineKeyboardButton(text="🤖 Команды", callback_data="commands")],
     ])
@@ -157,6 +172,7 @@ async def cmd_start(message: Message, bot_username: str):
         "Туман помнит всё.\n\n"
         f"📍 <b>{loc['name']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
+        f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
     )
     await message.answer(text, reply_markup=main_menu_kb())
@@ -248,6 +264,7 @@ async def cb_main_menu(callback: CallbackQuery):
     text += (
         f"📍 <b>{loc['name']}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
+        f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
     )
     await callback.message.edit_text(text, reply_markup=main_menu_kb())
@@ -276,6 +293,11 @@ async def cb_look(callback: CallbackQuery):
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
     text += f"🌍 <b>{loc['name']}</b>\n\n{loc['description']}\n"
+
+    weather = loc.get("current_weather", "clear")
+    from services.weather_system import WEATHER_STATES
+    w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
+    text += f"\n{w_info['icon']} <i>{w_info['name']}</i>\n"
 
     if creatures:
         text += "\n👁 <b>Здесь есть:</b>\n"
@@ -678,6 +700,60 @@ async def cb_heal(callback: CallbackQuery):
     await callback.answer()
 
 
+FOOD_HUNGER = {
+    "bread": 20, "fish": 25, "apple": 15, "cheese": 30,
+    "dried_meat": 35, "berry": 10,
+}
+
+
+@router.callback_query(F.data == "eat_food")
+async def cb_eat_food(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user = await services.player.get_or_create(user_id)
+
+    if not user["is_alive"]:
+        await callback.answer("💀 Ты мёртв.", show_alert=True)
+        return
+
+    inventory = await services.inventory.get(user_id)
+    food_items = [i for i in inventory if i["item_id"] in FOOD_HUNGER]
+
+    if not food_items:
+        await callback.answer("Нет еды в инвентаре! Купи на рынке.", show_alert=True)
+        return
+
+    buttons = []
+    for item in food_items:
+        hunger_restore = FOOD_HUNGER[item["item_id"]]
+        qty = item.get("quantity", 1)
+        buttons.append([InlineKeyboardButton(
+            text=f"🍖 {item['name']} ×{qty} (+{hunger_restore} 🍖)",
+            callback_data=f"eat:{item['item_id']}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
+
+    text = "🍖 <b>Поесть</b>\n\nВыбери еду:"
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("eat:"))
+async def cb_eat(callback: CallbackQuery):
+    item_id = callback.data.split(":", 1)[1]
+    user_id = callback.from_user.id
+
+    if not await services.inventory.has(user_id, item_id):
+        await callback.answer("Предмет не найден!", show_alert=True)
+        return
+
+    hunger_restore = FOOD_HUNGER.get(item_id, 10)
+    await services.inventory.remove(user_id, item_id)
+    result = await services.player.feed(user_id, hunger_restore)
+
+    await callback.answer(result["message"], show_alert=True)
+    await cb_main_menu(callback)
+
+
 # ──────────────────────────────────────────────
 #  Инвентарь
 # ──────────────────────────────────────────────
@@ -731,9 +807,16 @@ async def cb_status(callback: CallbackQuery):
     days = user.get("days_in_mist", 0)
     xp_needed = user["level"] * 100
 
+    loc = await services.movement.get_location(user["current_location"])
+    weather = loc.get("current_weather", "clear") if loc else "clear"
+    from services.weather_system import WEATHER_STATES
+    from services.time_system import TIME_PERIODS
+    w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
+
     text = (
         f"👤 <b>{user['display_name']}</b>\n\n"
         f"📍 Локация: {user['current_location']}\n"
+        f"{w_info['icon']} Погода: {w_info['name']}\n"
         f"⏰ Дней в MIST: {days}\n\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']}\n"
         f"🗡 Атака: {user['attack']}\n"

@@ -31,7 +31,7 @@ async def cb_crafting_menu(callback: CallbackQuery):
         await callback.answer()
         return
 
-    text = f"⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n🌟"
+    text = f"⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n"
     buttons = []
     for r in recipes:
         ingredients = json.loads(r["ingredients"]) if isinstance(r["ingredients"], str) else r["ingredients"]
@@ -53,6 +53,13 @@ async def cb_crafting_menu(callback: CallbackQuery):
             callback_data=f"craft:{r['recipe_id']}"
         )])
 
+    history = await services.crafting.get_history(callback.from_user.id)
+    if history:
+        text += "\n📋 <b>Последние крафты:</b>\n"
+        for h in history[:10]:
+            text += f"  • {h.get('recipe_id', '?')} ×{h.get('times_crafted', 1)}\n"
+
+    buttons.append([InlineKeyboardButton(text="📋 История", callback_data="crafting_history")])
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await callback.answer()
@@ -79,4 +86,23 @@ async def cb_craft(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "crafting_history")
+async def cb_crafting_history(callback: CallbackQuery):
+    history = await services.crafting.get_history(callback.from_user.id, limit=20)
+
+    if not history:
+        text = "📋 <b>История крафтов</b>\n\nПока ничего не скрафчено."
+    else:
+        text = "📋 <b>История крафтов</b>\n\n"
+        for h in history:
+            text += f"• {h['recipe_id']} ×{h['times_crafted']}\n"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⚒️ Крафт", callback_data="crafting_menu")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()

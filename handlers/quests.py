@@ -65,6 +65,14 @@ async def cb_quests(callback: CallbackQuery):
 
     buttons = []
 
+    seasonal = await services.seasonal_quest.get_seasonal_quests(
+        services.world_engine._state["season"] if services.world_engine._state else "spring"
+    )
+    if seasonal:
+        text += "\n🌸 <b>Сезонные квесты:</b>\n"
+        for sq in seasonal:
+            text += f"  🌸 {sq['name']}\n"
+
     if available_here:
         for q in available_here:
             buttons.append([InlineKeyboardButton(
@@ -90,10 +98,16 @@ async def cb_quests(callback: CallbackQuery):
                 loc_name = LOC_NAMES.get(q_loc, q_loc)
                 next_name = LOC_NAMES.get(next_step, next_step)
                 if all_done:
-                    buttons.append([InlineKeyboardButton(
-                        text=f"🏆 Сдать: {q['name']} → {next_name}",
-                        callback_data=f"move:{next_step}"
-                    )])
+                    if q_loc == user["current_location"]:
+                        buttons.append([InlineKeyboardButton(
+                            text=f"🏆 Сдать: {q['name']}",
+                            callback_data=f"turnin:{q['quest_id']}"
+                        )])
+                    else:
+                        buttons.append([InlineKeyboardButton(
+                            text=f"🏆 Сдать: {q['name']} → {next_name}",
+                            callback_data=f"move:{next_step}"
+                        )])
                 else:
                     buttons.append([InlineKeyboardButton(
                         text=f"🚶 {q['name']} → {next_name}",
@@ -132,6 +146,22 @@ async def cb_accept(callback: CallbackQuery):
     result = await services.quest.accept(callback.from_user.id, quest_id)
 
     text = result["message"]
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
+        [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+    ])
+
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("turnin:"))
+async def cb_turnin(callback: CallbackQuery):
+    quest_id = callback.data.split(":")[1]
+    result = await services.quest.complete(callback.from_user.id, quest_id)
+
+    text = result.get("message", "Квест сдан!")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],

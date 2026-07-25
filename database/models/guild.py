@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text
+from sqlalchemy import Column, String, Integer, DateTime, Text, JSON
 from sqlalchemy.sql import func
 from database.base import Base
 
@@ -27,3 +27,26 @@ class GuildMemberModel(Base):
     role = Column(String(20), default="member")
     contribution = Column(Integer, default=0)
     joined_at = Column(DateTime, server_default=func.now())
+
+
+class GuildStorageModel(Base):
+    __tablename__ = "guild_storage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(String(50), nullable=False, index=True)
+    item_id = Column(String(100), nullable=False)
+    quantity = Column(Integer, default=1)
+    deposited_by = Column(Integer, nullable=True)
+    deposited_at = Column(DateTime, server_default=func.now())
+
+
+class GuildQuestModel(Base):
+    __tablename__ = "guild_quests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(String(50), nullable=False, index=True)
+    quest_id = Column(String(100), nullable=False)
+    status = Column(String(20), default="active")
+    progress = Column(Integer, default=0)
+    started_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime, nullable=True)

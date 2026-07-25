@@ -77,8 +77,23 @@ class ShopService:
             if user["gold"] < shop_entry.price:
                 return {"success": False, "message": f"Недостаточно золота. Нужно: {shop_entry.price} 🪙, есть: {user['gold']} 🪙"}
 
+            reputation = user.get("reputation", 0)
+            if reputation >= 100:
+                price = int(shop_entry.price * 0.85)
+            elif reputation >= 50:
+                price = int(shop_entry.price * 0.90)
+            elif reputation >= 0:
+                price = shop_entry.price
+            elif reputation >= -50:
+                price = int(shop_entry.price * 1.10)
+            else:
+                price = int(shop_entry.price * 1.25)
+
+            if user["gold"] < price:
+                return {"success": False, "message": f"Недостаточно золота. Нужно: {price} 🪙, есть: {user['gold']} 🪙"}
+
             await db.execute(
-                update(UserModel).where(UserModel.user_id == user_id).values(gold=user["gold"] - shop_entry.price)
+                update(UserModel).where(UserModel.user_id == user_id).values(gold=user["gold"] - price)
             )
 
             inv_stmt = select(InventoryModel).where(
@@ -107,6 +122,13 @@ class ShopService:
                 player_id=user_id,
                 importance=Importance.TRIVIAL,
                 metadata={"item_id": item_id, "shop": shop_id, "price": shop_entry.price},
+            )
+
+            from services.container import services
+            await services.analytics.track(
+                "item_bought",
+                user_id=user_id,
+                data={"item_id": item_id, "price": shop_entry.price},
             )
 
             return {"success": True, "message": f"🛒 Купил «{name}» за {shop_entry.price} 🪙"}
@@ -179,3 +201,40 @@ class ShopService:
                 "description": row.description, "rarity": row.rarity,
             }
         return None
+
+    SEASONAL_ITEMS = {
+        "spring": [
+            {"item_id": "healing_herb", "name": "Трава исцеления", "price": 8, "description": "Весенняя трава, полная жизни."},
+            {"item_id": "light_leaf", "name": "Лист света", "price": 15, "description": "Сияющий лист, появляющийся весной."},
+            {"item_id": "berry", "name": "Ягоды", "price": 3, "description": "Свежие ягоды первых цветов."},
+        ],
+        "summer": [
+            {"item_id": "dried_meat", "name": "Сушёное мясо", "price": 12, "description": "Летний запас белка."},
+            {"item_id": "fish", "name": "Рыба", "price": 6, "description": "Свежая летняя рыба."},
+            {"item_id": "apple", "name": "Яблоко", "price": 4, "description": "Спелое летнее яблоко."},
+        ],
+        "autumn": [
+            {"item_id": "swamp_root", "name": "Болотный корень", "price": 10, "description": "Осенний корень с целебными свойствами."},
+            {"item_id": "wolf_fang", "name": "Волчий клык", "price": 18, "description": "Клык голодного волка."},
+            {"item_id": "cheese", "name": "Сыр", "price": 8, "description": "Домашний сыр из осеннего молока."},
+        ],
+        "winter": [
+            {"item_id": "frozen_tear", "name": "Замёрзшая слеза", "price": 25, "description": "Редкий зимний кристалл."},
+            {"item_id": "shadow_essence", "name": "Суть тени", "price": 20, "description": "Сконденсированная теневая энергия."},
+            {"item_id": "bread", "name": "Хлеб", "price": 5, "description": "Тёплый хлеб для холодных вечеров."},
+        ],
+    }
+
+    async def get_seasonal_items(self, season: str) -> list:
+        items = self.SEASONAL_ITEMS.get(season, [])
+        if not items:
+            return []
+        item_ids = [item["item_id"] for item in items]
+        templates = {}
+        async for db in get_db():
+            stmt = select(ItemTemplateModel).where(ItemTemplateModel.item_id.in_(item_ids))
+            result = await db.execute(stmt)
+            for row in result.scalars().all():
+                templates[row.item_id] = {"item_id": row.item_id, "name": row.name, "description": row.description, "rarity": row.rarity}
+            break
+        return [{**item, **templates.get(item["item_id"], {"rarity": "common"})} for item in items]

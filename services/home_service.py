@@ -303,4 +303,58 @@ class HomeService:
             "condition": row.condition,
             "mood": row.mood,
             "income_per_day": row.income_per_day,
+            "storage": row.storage or [],
         }
+
+    async def storage_deposit(self, user_id: int, item_id: str, qty: int = 1) -> dict:
+        async for db in get_db():
+            stmt = select(PlayerHomeModel).where(
+                PlayerHomeModel.owner_id == user_id,
+                PlayerHomeModel.is_active == True,
+            )
+            result = await db.execute(stmt)
+            home = result.scalar_one_or_none()
+            if not home:
+                return {"success": False, "message": "У тебя нет дома."}
+
+            storage = home.storage or []
+            if len(storage) >= home.storage_capacity:
+                return {"success": False, "message": f"Нет места. Занято {len(storage)}/{home.storage_capacity}"}
+
+            for s in storage:
+                if s.get("item_id") == item_id:
+                    s["qty"] = s.get("qty", 1) + qty
+                    break
+            else:
+                storage.append({"item_id": item_id, "qty": qty})
+
+            home.storage = storage
+            await db.commit()
+            return {"success": True, "message": f"📦 Положил {item_id} x{qty} в хранилище."}
+        return {"success": False, "message": "Ошибка базы данных."}
+
+    async def storage_withdraw(self, user_id: int, item_id: str, qty: int = 1) -> dict:
+        async for db in get_db():
+            stmt = select(PlayerHomeModel).where(
+                PlayerHomeModel.owner_id == user_id,
+                PlayerHomeModel.is_active == True,
+            )
+            result = await db.execute(stmt)
+            home = result.scalar_one_or_none()
+            if not home:
+                return {"success": False, "message": "У тебя нет дома."}
+
+            storage = home.storage or []
+            existing = next((s for s in storage if s.get("item_id") == item_id), None)
+            if not existing or existing.get("qty", 1) < qty:
+                avail = existing.get("qty", 1) if existing else 0
+                return {"success": False, "message": f"Нет {item_id} x{qty} (есть x{avail})."}
+
+            existing["qty"] -= qty
+            if existing["qty"] <= 0:
+                storage = [s for s in storage if s.get("item_id") != item_id]
+
+            home.storage = storage
+            await db.commit()
+            return {"success": True, "message": f"📦 Забрал {item_id} x{qty} из хранилища."}
+        return {"success": False, "message": "Ошибка базы данных."}

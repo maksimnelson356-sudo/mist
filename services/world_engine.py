@@ -48,7 +48,8 @@ WEATHER_SEASON_BIAS = {
 class WorldEngine:
 
     def __init__(self, chronicle, ecosystem=None, guild_territory=None, home_service=None,
-                 npc_life=None, world_memory=None, seasonal_quest=None, world_boss=None):
+                 npc_life=None, world_memory=None, seasonal_quest=None, world_boss=None,
+                 seasonal_event=None, daily_event=None, npc_scheduler=None):
         self.chronicle = chronicle
         self._running = False
         self._state = None
@@ -59,6 +60,9 @@ class WorldEngine:
         self.world_memory = world_memory
         self.seasonal_quest = seasonal_quest
         self.world_boss = world_boss
+        self.seasonal_event = seasonal_event
+        self.daily_event = daily_event
+        self.npc_scheduler = npc_scheduler
 
     async def _load_state(self):
         async for db in get_db():
@@ -213,6 +217,9 @@ class WorldEngine:
         if self.npc_life:
             await self.npc_life.tick(new_day, self._state["game_hour"], self._state["season"])
 
+        if self.npc_scheduler:
+            await self.npc_scheduler.tick(self._state["game_hour"], self._state["game_minute"])
+
         if self.world_memory:
             await self.world_memory.expire_old_memories()
 
@@ -221,6 +228,9 @@ class WorldEngine:
 
         if self.world_boss:
             await self.world_boss.check_respawns(self._state["game_hour"])
+
+        if self.daily_event:
+            await self.daily_event.trigger_daily_event(new_day)
 
         if events_today:
             await self.chronicle.publish(
@@ -405,6 +415,9 @@ class WorldEngine:
             importance=Importance.COMMON,
         )
         logger.info(f"Сезон: {old_name} → {new_name}")
+
+        if self.seasonal_event:
+            await self.seasonal_event.trigger_season_event(new_season, self._state["game_day"])
 
     async def _update_location_weather(self):
         season = self._state["season"]

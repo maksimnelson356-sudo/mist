@@ -2,7 +2,7 @@ import json
 import random
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, text
 
 from database.base import get_db
 from database.models.user import UserModel
@@ -12,6 +12,40 @@ from database.models.item import ItemTemplateModel
 from database.models.combat import CombatLogModel
 from database.models.location import LocationModel
 from domain.events import EventType, Importance
+
+WEATHER_COMBAT_EFFECTS = {
+    "clear": {"attack_mod": 0, "defense_mod": 0, "description": ""},
+    "rain": {"attack_mod": -1, "defense_mod": 0, "description": "🌧️ Дождь снижает атаку на 1"},
+    "storm": {"attack_mod": -2, "defense_mod": -1, "description": "⛈️ Гроза снижает атаку на 2, защиту на 1"},
+    "fog": {"attack_mod": 0, "defense_mod": 1, "description": "🌫️ Туман даёт бонус к защите +1"},
+    "snow": {"attack_mod": -1, "defense_mod": -1, "description": "❄️ Снег снижает атаку и защиту на 1"},
+}
+
+TIME_COMBAT_EFFECTS = {
+    "morning": {"attack_mod": 0, "defense_mod": 0, "xp_mod": 0, "description": ""},
+    "afternoon": {"attack_mod": 0, "defense_mod": 0, "xp_mod": 0, "description": ""},
+    "evening": {"attack_mod": -1, "defense_mod": 0, "xp_mod": 0, "description": "🌆 Вечер: атака -1"},
+    "night": {"attack_mod": -2, "defense_mod": 1, "xp_mod": 10, "description": "🌙 Ночь: атака -2, защита +1, XP +10"},
+}
+
+CLASS_ABILITIES = {
+    "power_strike": {"damage_mult": 2.0, "description": "Мощный удар x2"},
+    "shield_wall": {"defense_bonus": 10, "duration": 3, "description": "Стена щитов +10 защита"},
+    "berserk": {"attack_mult": 1.5, "defense_mult": 0.75, "duration": 5, "description": "Берсерк +50% атака, -25% защита"},
+    "war_cry": {"aoe_damage": 20, "description": "Боевой клич 20 урона"},
+    "fireball": {"magic_damage": 25, "description": "Огненный шар 25 урона"},
+    "arcane_shield": {"block_next": True, "description": "Магический щит блокирует удар"},
+    "heal": {"heal_amount": 40, "description": "Исцеление +40 HP"},
+    "meteor": {"aoe_damage": 80, "description": "Метеор 80 урона"},
+    "quick_shot": {"hits": 2, "description": "Быстрый выстрел 2 удара"},
+    "dodge": {"dodge_next": True, "description": "Уклонение от следующей атаки"},
+    "stealth": {"invisible": True, "duration": 3, "description": "Скрытность 3 хода"},
+    "eagle_eye": {"crit_bonus": 0.5, "duration": 5, "description": "Орлиный глаз +50% крит"},
+    "repair": {"repair_equipment": True, "description": "Починка снаряжения"},
+    "fortify": {"defense_bonus": 8, "duration": 3, "description": "Укрепить +8 защита"},
+    "trap": {"damage_on_hit": 30, "description": "Ловушка 30 урона"},
+    "golem": {"summon_hp": 100, "duration": 5, "description": "Голем 100 HP"},
+}
 
 
 STATUS_EFFECTS = {
@@ -33,7 +67,7 @@ class CombatService:
         self.chronicle = chronicle
         self.user_service = user_service
 
-    async def start(self, user_id: int, creature_id: str) -> dict:
+    async def start(self, user_id: int, creature_id: str, ability_id: str = None) -> dict:
         user = await self.user_service.get(user_id)
         if not user:
             return {"success": False, "message": "Пользователь не найден."}
@@ -74,16 +108,50 @@ class CombatService:
             "message": f"⚔️ Ты вступаешь в бой с *{creature['name']}*!{equip_info}\n⚔️ Атака: {effective_attack} | 🛡️ Защита: {effective_defense}",
         }
 
-    async def resolve(self, user_id: int, creature_id: str, action: str = "attack") -> dict:
+    async def resolve(self, user_id: int, creature_id: str, action: str = "attack", ability_id: str = None) -> dict:
         user = await self.user_service.get(user_id)
         creature = await self._get_creature(creature_id)
 
         if not user or not creature:
             return {"success": False, "message": "Ошибка боя."}
 
+        ability_mod = {}
+        if ability_id and ability_id in CLASS_ABILITIES:
+            ability_mod = CLASS_ABILITIES[ability_id]
+
         equip_bonus = await self._get_equipment_bonuses(user_id)
         effective_attack = user["attack"] + equip_bonus["attack"]
         effective_defense = user["defense"] + equip_bonus["defense"]
+
+        weather_mod = {"attack_mod": 0, "defense_mod": 0, "description": ""}
+        try:
+            loc = await self._get_location(user["current_location"])
+            if loc and loc.get("current_weather"):
+                weather_mod = WEATHER_COMBAT_EFFECTS.get(loc["current_weather"], weather_mod)
+                effective_attack += weather_mod["attack_mod"]
+                effective_defense += weather_mod["defense_mod"]
+        except Exception as e:
+            logger.warning(f"Weather modifier error: {e}", exc_info=True)
+
+        time_mod = {"attack_mod": 0, "defense_mod": 0, "xp_mod": 0, "description": ""}
+        try:
+            from services.time_system import TimeSystem
+            time_system = TimeSystem(self.chronicle)
+            time_info = time_system.get_current_time()
+            time_mod = TIME_COMBAT_EFFECTS.get(time_info["period"], time_mod)
+            effective_attack += time_mod["attack_mod"]
+            effective_defense += time_mod["defense_mod"]
+        except Exception as e:
+            logger.warning(f"Time modifier error: {e}", exc_info=True)
+
+        hunger = user.get("hunger", 100)
+        hunger_penalty = ""
+        if hunger <= 0:
+            effective_attack = int(effective_attack * 0.8)
+            hunger_penalty = " (-20% атк от голода)"
+        elif hunger < 20:
+            effective_attack = int(effective_attack * 0.9)
+            hunger_penalty = " (-10% атк от голода)"
 
         creature_spawn = creature.get("spawn_data", {})
         is_boss = creature_spawn.get("is_boss", False)
@@ -133,6 +201,22 @@ class CombatService:
                     elif current_action == "defend":
                         user_dmg = 0
                         user_hp = min(user["max_hp"], user_hp + 5)
+
+                    if ability_mod.get("damage_mult"):
+                        user_dmg = int(user_dmg * ability_mod["damage_mult"])
+                        round_data["ability"] = ability_mod.get("description", "")
+                    if ability_mod.get("magic_damage"):
+                        user_dmg += ability_mod["magic_damage"]
+                        round_data["ability"] = ability_mod.get("description", "")
+                    if ability_mod.get("hits"):
+                        user_dmg *= ability_mod["hits"]
+                        round_data["ability"] = ability_mod.get("description", "")
+                    if ability_mod.get("heal_amount"):
+                        user_hp = min(user["max_hp"], user_hp + ability_mod["heal_amount"])
+                        round_data["ability"] = ability_mod.get("description", "")
+                    if ability_mod.get("defense_bonus"):
+                        effective_defense += ability_mod["defense_bonus"]
+                        round_data["ability"] = ability_mod.get("description", "")
 
                     creature_hp -= user_dmg
                     round_data["user_damage"] = user_dmg
@@ -208,9 +292,26 @@ class CombatService:
 
             elif user_hp <= 0:
                 result_log["outcome"] = "defeat"
-                await db.execute(
-                    update(UserModel).where(UserModel.user_id == user_id).values(hp=0, is_alive=False)
-                )
+
+                user_result = await db.execute(select(UserModel).where(UserModel.user_id == user_id))
+                user_row = user_result.scalar_one_or_none()
+                if user_row:
+                    xp_loss = max(0, user_row.xp // 10)
+                    gold_loss = max(0, user_row.gold // 5)
+                    new_xp = max(0, user_row.xp - xp_loss)
+                    new_gold = max(0, user_row.gold - gold_loss)
+                    await db.execute(
+                        update(UserModel).where(UserModel.user_id == user_id).values(
+                            hp=0, is_alive=False, xp=new_xp, gold=new_gold,
+                            current_location="dark_forest",
+                        )
+                    )
+                    result_log["xp_loss"] = xp_loss
+                    result_log["gold_loss"] = gold_loss
+                else:
+                    await db.execute(
+                        update(UserModel).where(UserModel.user_id == user_id).values(hp=0, is_alive=False)
+                    )
                 await db.commit()
                 await self._creature_remember(creature_id, user_id, "killed_player", db)
                 await self.chronicle.publish(
@@ -249,6 +350,16 @@ class CombatService:
             ))
             await db.commit()
             break
+
+        from services.container import services
+        await services.analytics.track(
+            f"combat_{result_log['outcome']}",
+            user_id=user_id,
+            data={"creature_id": creature_id, "xp": result_log.get("xp_gained", 0)},
+        )
+
+        await services.player.decrease_hunger(user_id, 5)
+        result_log["hunger"] = (await services.player.get_or_create(user_id))["hunger"]
 
         return result_log
 
@@ -379,6 +490,20 @@ class CombatService:
             delete(UserStatusEffectModel).where(UserStatusEffectModel.user_id == user_id)
         )
         await db.commit()
+
+    async def _get_location(self, location_id: str) -> dict | None:
+        async for db in get_db():
+            result = await db.execute(
+                select(LocationModel).where(LocationModel.location_id == location_id)
+            )
+            loc = result.scalar_one_or_none()
+            if loc:
+                return {
+                    "location_id": loc.location_id,
+                    "name": loc.name,
+                    "current_weather": loc.current_weather or "clear",
+                }
+        return None
 
     async def _add_item(self, user_id: int, item_id: str, qty: int, db):
         stmt = select(InventoryModel).where(

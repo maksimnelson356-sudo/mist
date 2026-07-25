@@ -95,6 +95,8 @@ def test_player_service_to_dict(player_service):
         pvp_wins=5,
         pvp_losses=2,
         pvp_rating=1100,
+        hunger=100,
+        max_hunger=100,
     )
 
     result = player_service._to_dict(mock_user)

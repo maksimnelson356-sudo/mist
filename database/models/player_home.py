@@ -31,3 +31,4 @@ class PlayerHomeModel(Base):
     condition = Column(Integer, default=100)
     mood = Column(String(20), default="calm")
     income_per_day = Column(Integer, default=0)
+    storage = Column(JSON, default=list)
