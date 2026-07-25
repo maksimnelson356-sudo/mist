@@ -72,10 +72,12 @@ async def cb_war_view(callback: CallbackQuery):
         await callback.answer("Война не найдена.", show_alert=True)
         return
 
+    loc_name = await services.movement.get_location_name(war["location"])
+
     text = (
         f"⚔️ <b>Война</b>\n\n"
         f"👥 {war['attacker']} vs {war['defender']}\n"
-        f"📍 Локация: {war['location']}\n\n"
+        f"📍 Локация: {loc_name}\n\n"
         f"🏆 Счёт: {war['attacker_wins']} : {war['defender_wins']}\n"
     )
 
@@ -188,8 +190,10 @@ async def cb_war_declare_target(callback: CallbackQuery):
 
     result = await services.guild_war.declare_war(user_guild["guild_id"], target_id, location)
 
+    loc_name = await services.movement.get_location_name(location)
+
     if result["success"]:
-        text = f"✅ {result['message']}\n\n📍 Локация: {location}"
+        text = f"✅ {result['message']}\n\n📍 Локация: {loc_name}"
     else:
         text = f"❌ {result['message']}"
 

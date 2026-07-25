@@ -32,6 +32,10 @@ class MovementService:
             return self._to_dict(loc) if loc else None
         return None
 
+    async def get_location_name(self, location_id: str) -> str:
+        loc = await self.get_location(location_id)
+        return loc["name"] if loc else location_id
+
     async def move(self, user_id: int, target_location: str) -> dict:
         async for db in get_db():
             user = await self.user_service.get(user_id)

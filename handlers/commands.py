@@ -15,6 +15,7 @@ COMMANDS_INFO = {
     "shop": "Открыть магазин",
     "inventory": "Посмотреть инвентарь",
     "locations": "Показать карту локаций",
+    "go": "Показать куда можно идти",
     "status": "Показать статус персонажа",
     "whisper": "Слушать шёпот тумана",
     "achievements": "Просмотреть достижения",
@@ -27,6 +28,7 @@ COMMANDS_DESC = {
     "shop": "Купить или продать предметы в магазине.",
     "inventory": "Переглянути свій інвентар і предмети.",
     "locations": "Показати карту локацій і шляхи.",
+    "go": "Показати доступні напрямки для переходу.",
     "status": "Показати статистику персонажа, рівень, нагромадження.",
     "whisper": "Слухати таємничі шепоти туману.",
     "achievements": "Переглянути інформацію про досягнення.",
@@ -39,6 +41,7 @@ COMMANDS_EXAMPLES = {
     "shop": "<code>/shop</code> - открыть магазин",
     "inventory": "<code>/inventory</code> - показать инвентарь",
     "locations": "<code>/locations</code> - показать карту",
+    "go": "<code>/go</code> - куда можно идти",
     "status": "<code>/status</code> - показать статус",
     "whisper": "<code>/whisper</code> - послушать шёпот",
     "achievements": "<code>/achievements</code> - показать достижения",
@@ -248,6 +251,31 @@ async def cmd_locations(message: Message):
     await message.answer(text, reply_markup=kb)
 
 
+@router.message(Command("go"))
+async def cmd_go(message: Message):
+    if message.chat.type != "private":
+        return
+
+    user = await services.player.get_or_create(message.from_user.id)
+    loc = await services.movement.get_location(user["current_location"])
+    connections = loc.get("connections", []) if loc else []
+
+    loc_name = loc["name"] if loc else user["current_location"]
+    text = f"🧭 <b>Куда идти из «{loc_name}»?</b>\n\n"
+
+    if not connections:
+        text += "Нет доступных выходов. Осмотрись — возможно, путь откроется.\n"
+    else:
+        for loc_id in connections:
+            target = await services.movement.get_location(loc_id)
+            if target:
+                icon = "✅" if target["discovered"] else "❓"
+                text += f"{icon} {target['name']}\n"
+
+    kb = await nav_kb(connections)
+    await message.answer(text, reply_markup=kb)
+
+
 @router.message(Command("status"))
 async def cmd_status(message: Message):
     if message.chat.type != "private":
@@ -257,9 +285,10 @@ async def cmd_status(message: Message):
     days = user.get("days_in_mist", 0)
     xp_needed = user["level"] * 100
 
+    loc_name = await services.movement.get_location_name(user["current_location"])
     text = (
         f"👤 <b>{user['display_name']}</b>\n\n"
-        f"📍 Локация: {user['current_location']}\n"
+        f"📍 Локация: {loc_name}\n"
         f"⏰ Дней в MIST: {days}\n\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']}\n"
         f"🗡 Атака: {user['attack']}\n"

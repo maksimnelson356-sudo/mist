@@ -161,6 +161,7 @@ async def cmd_start(message: Message, bot_username: str):
         return
 
     loc = await services.movement.get_location(user["current_location"])
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
     if scene:
@@ -170,10 +171,11 @@ async def cmd_start(message: Message, bot_username: str):
         "Ты просыпаешься в тумане.\n"
         "Не помнишь, как сюда попал.\n\n"
         "Туман помнит всё.\n\n"
-        f"📍 <b>{loc['name'] if loc else user['current_location']}</b>\n"
+        f"📍 <b>{loc_name}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
-        f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
+        f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}\n\n"
+        "<i>Нажми 🔍 Осмотреться чтобы увидеть выходы</i>"
     )
     await message.answer(text, reply_markup=main_menu_kb())
 
@@ -211,7 +213,8 @@ async def cb_revive(callback: CallbackQuery):
     if result["success"]:
         user = await services.player.get_or_create(callback.from_user.id)
         loc = await services.movement.get_location(user["current_location"])
-        text = result["message"] + f"\n\n📍 <b>{loc['name'] if loc else user['current_location']}</b>"
+        loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
+        text = result["message"] + f"\n\n📍 <b>{loc_name}</b>"
         kb = main_menu_kb()
     else:
         text = result["message"]
@@ -262,7 +265,7 @@ async def cb_main_menu(callback: CallbackQuery):
         text += "\n"
 
     text += (
-        f"📍 <b>{loc['name'] if loc else user['current_location']}</b>\n"
+        f"📍 <b>{loc_name}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
@@ -292,7 +295,8 @@ async def cb_look(callback: CallbackQuery):
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
-    text += f"🌍 <b>{loc['name'] if loc else user['current_location']}</b>\n\n{loc.get('description', '') if loc else ''}\n"
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
+    text += f"🌍 <b>{loc_name}</b>\n\n{loc.get('description', '') if loc else ''}\n"
 
     weather = loc.get("current_weather", "clear") if loc else "clear"
     from services.weather_system import WEATHER_STATES
@@ -497,9 +501,10 @@ async def cb_pickup_all(callback: CallbackQuery):
 async def cb_locations(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
     loc = await services.movement.get_location(user["current_location"])
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
     connections = loc.get("connections", []) if loc else []
 
-    text = f"🗺 <b>Выходы из «{loc['name'] if loc else user['current_location']}»:</b>\n\n"
+    text = f"🗺 <b>Выходы из «{loc_name}»:</b>\n\n"
     for loc_id in connections:
         target = await services.movement.get_location(loc_id)
         if target:
@@ -807,6 +812,7 @@ async def cb_status(callback: CallbackQuery):
     days = user.get("days_in_mist", 0)
     xp_needed = user["level"] * 100
 
+    loc_name = await services.movement.get_location_name(user["current_location"])
     loc = await services.movement.get_location(user["current_location"])
     weather = loc.get("current_weather", "clear") if loc else "clear"
     from services.weather_system import WEATHER_STATES
@@ -815,7 +821,7 @@ async def cb_status(callback: CallbackQuery):
 
     text = (
         f"👤 <b>{user['display_name']}</b>\n\n"
-        f"📍 Локация: {user['current_location']}\n"
+        f"📍 Локация: {loc_name}\n"
         f"{w_info['icon']} Погода: {w_info['name']}\n"
         f"⏰ Дней в MIST: {days}\n\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']}\n"

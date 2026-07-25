@@ -34,9 +34,11 @@ async def cb_profile(callback: CallbackQuery):
     else:
         rep_name = "Герой"
 
+    loc_name = await services.movement.get_location_name(user["current_location"])
+
     text = (
         f"👤 <b>{user['display_name']}</b>\n\n"
-        f"📍 {user['current_location']}\n"
+        f"📍 {loc_name}\n"
         f"📅 Дней в MIST: {user.get('days_in_mist', 0)}\n\n"
         f"☀️ Погода: {weather_data['name']} {weather_data.get('icon', '')}\n"
         f"🕐 Время: {time_data.get('name', '?')}\n\n"

@@ -61,10 +61,12 @@ async def cb_event_view(callback: CallbackQuery):
         return
 
     participations = ev.get("participations")
+    loc_name = await services.movement.get_location_name(ev.get("region_id", "?"))
+
     text = (
         f"🎭 <b>{ev['name']}</b>\n\n"
         f"{ev.get('description', '')}\n\n"
-        f"📍 Регион: {ev.get('region_id', '?')}\n"
+        f"📍 Регион: {loc_name}\n"
     )
 
     buttons = []

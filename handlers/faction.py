@@ -49,10 +49,12 @@ async def cb_faction_view(callback: CallbackQuery):
     player_factions = await services.faction.get_player_factions(user_id)
     pf = next((pf for pf in player_factions if pf["faction_id"] == faction_id), None)
 
+    loc_name = await services.movement.get_location_name(info["location"])
+
     text = (
         f"{info['icon']} <b>{info['name']}</b>\n\n"
         f"{info['description']}\n\n"
-        f"📍 Локация: {info['location']}\n"
+        f"📍 Локация: {loc_name}\n"
         f"👥 Участников: {info['member_count']}\n\n"
     )
 

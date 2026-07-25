@@ -130,8 +130,10 @@ async def cb_home_build_confirm(callback: CallbackQuery):
 
     result = await services.home.create_home(user_id, location, type_id)
 
+    loc_name = await services.movement.get_location_name(location)
+
     if result["success"]:
-        text = f"✅ {result['message']}\n\n🏠 Твой новый дом в {location}"
+        text = f"✅ {result['message']}\n\n🏠 Твой новый дом в {loc_name}"
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🏠 Мой дом", callback_data="home_menu")],
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
