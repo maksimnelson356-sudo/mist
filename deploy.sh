@@ -4,12 +4,12 @@ set -e
 echo "🌫 MIST — Деплой на VPS"
 
 # Клонируем/обновляем
-if [ -d "/opt/MIST" ]; then
-    cd /opt/MIST
+if [ -d "/opt/mist" ]; then
+    cd /opt/mist
     git pull
 else
-    git clone <REPO_URL> /opt/MIST
-    cd /opt/MIST
+    git clone https://github.com/maksimnelson356-sudo/mist.git /opt/mist
+    cd /opt/mist
 fi
 
 # venv
