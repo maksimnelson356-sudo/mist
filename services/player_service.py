@@ -83,8 +83,8 @@ class PlayerService:
             if last_seen is None:
                 return None
 
-            from datetime import datetime, timezone
-            now = datetime.now(timezone.utc)
+            from datetime import datetime
+            now = datetime.utcnow()
             diff = now - last_seen
             hours_away = diff.total_seconds() / 3600
 
