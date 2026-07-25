@@ -54,3 +54,22 @@
 - **Файл:** `handlers/shop.py`
 - **Проблема:** Две строки обращаются к `services.world_engine._state["season"]` напрямую, достигая в приватный атрибут. Существует публичный метод `get_state()`.
 - **Исправление:** Заменено на `services.world_engine.get_state().get("season", "spring")`.
+
+## BUG 9: `interval_seconds` vs `interval` в EcosystemService (ВЫСОКИЙ)
+- **Файл:** `main.py`
+- **Проблема:** `services.ecosystem.start_loop(interval_seconds=900)` — но `EcosystemService.start_loop` принимает параметр `interval`, а не `interval_seconds`. Python выбрасывает `TypeError` при каждом запуске бота.
+- **Исправление:** Заменено на `services.ecosystem.start_loop(interval=900)`.
+
+## BUG 10: `loc` может быть `None` в game.py (СРЕДНИЙ)
+- **Файл:** `handlers/game.py`
+- **Проблема:** При старте бота с устаревшей БД `user["current_location"]` может указывать на несуществующую локацию. `services.movement.get_location()` возвращает `None`, и обращение к `loc['name']` вызывает `TypeError`.
+- **Исправление:** Во всех 7 местах где `loc` используется без проверки, добавлена обработка `None`:
+  - `loc['name'] if loc else user['current_location']`
+  - `loc.get('description', '') if loc else ''`
+  - `loc.get("current_weather", "clear") if loc else "clear"`
+  - `loc.get("connections", []) if loc else []`
+
+## BUG 11: `timezone-aware` vs `timezone-naive` в `get_catchup_summary` (НИЗКИЙ)
+- **Файл:** `services/player_service.py`
+- **Проблема:** `datetime.now(timezone.utc)` (aware) минус `last_seen` из SQLite (naive) вызывает `TypeError: can't subtract offset-naive and offset-aware datetimes`.
+- **Исправление:** Заменён `datetime.now(timezone.utc)` на `datetime.utcnow()` в `get_catchup_summary` для совместимости с timezone-naive SQLite датами.
