@@ -66,6 +66,24 @@ async def cb_npc_talk(callback: CallbackQuery):
     else:
         rel_text = "🔴 Враг"
 
+    if rep <= -60:
+        import random
+        if random.random() < 0.3:
+            attack_result = await services.combat.start(callback.from_user.id, npc_id)
+            if attack_result["success"]:
+                combat = await services.combat.resolve(callback.from_user.id, npc_id)
+                text = (
+                    f"⚔️ <b>{result['name']} нападает на тебя!</b>\n\n"
+                    f"Результат: {combat['outcome']}\n"
+                    f"❤️ HP: {combat['user_hp']}"
+                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")]
+                ])
+                await callback.message.edit_text(text, reply_markup=kb)
+                await callback.answer()
+                return
+
     ws = services.world_engine.get_state() or {}
     period = services.npc_scheduler.get_current_period(ws.get("game_hour"))
     period_names = {"night": "Ночь", "morning": "Утро", "afternoon": "День", "evening": "Вечер"}

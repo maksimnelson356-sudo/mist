@@ -1,4 +1,5 @@
 import logging
+import random
 from sqlalchemy import select, update, text
 
 from database.base import get_db
@@ -105,8 +106,7 @@ class EcosystemService:
                     missing = 3 - counts["total"]
                     weather = "clear"
                     try:
-                        from sqlalchemy import text as t
-                        r = await db.execute(t("SELECT current_weather FROM locations WHERE id = :lid OR location_id = :lid LIMIT 1"), {"lid": loc})
+                        r = await db.execute(text("SELECT current_weather FROM locations WHERE id = :lid OR location_id = :lid LIMIT 1"), {"lid": loc})
                         row = r.mappings().first()
                         if row:
                             weather = row.get("current_weather", "clear")
@@ -117,7 +117,6 @@ class EcosystemService:
             await db.commit()
 
     async def _spawn_creatures(self, db, location_id: str, count: int, weather: str = "clear", game_hour: int = 12):
-        import random
         weather_behavior = CREATURE_WEATHER_BEHAVIOR.get(weather, CREATURE_WEATHER_BEHAVIOR["clear"])
         preferred = weather_behavior.get("preferred_roles", [])
         is_night = game_hour >= 23 or game_hour <= 5

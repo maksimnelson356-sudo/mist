@@ -30,6 +30,75 @@ RELATION_TYPES = {
     "enemy": {"min": -100, "max": -60, "penalties": {"combat": True, "danger": 2.0}},
 }
 
+
+async def get_npc_relation_to_player(npc_id: str, player_id: int) -> dict:
+    try:
+        async for db in get_db():
+            result = await db.execute(
+                select(NPCRelationshipModel)
+                .where(NPCRelationshipModel.npc_id == npc_id)
+                .where(NPCRelationshipModel.target_id == str(player_id))
+            )
+            rel = result.scalar_one_or_none()
+            if not rel:
+                return {"type": "neutral", "value": 0, "bonuses": {}, "penalties": {}}
+
+            rel_type = rel.relation_type or "neutral"
+            rdef = RELATION_TYPES.get(rel_type, {})
+            return {
+                "type": rel_type,
+                "value": rel.value,
+                "bonuses": rdef.get("bonuses", {}),
+                "penalties": rdef.get("penalties", {}),
+            }
+    except Exception:
+        return {"type": "neutral", "value": 0, "bonuses": {}, "penalties": {}}
+
+
+async def get_trade_multiplier(player_id: int, npc_id: str = None) -> float:
+    if not npc_id:
+        return 1.0
+    rel = await get_npc_relation_to_player(npc_id, player_id)
+    return rel["bonuses"].get("trade", 1.0) * rel["penalties"].get("trade", 1.0)
+
+
+async def get_xp_multiplier(player_id: int) -> float:
+    try:
+        async for db in get_db():
+            result = await db.execute(
+                select(NPCRelationshipModel)
+                .where(NPCRelationshipModel.target_id == str(player_id))
+            )
+            rels = result.scalars().all()
+            for rel in rels:
+                rdef = RELATION_TYPES.get(rel.relation_type or "neutral", {})
+                if "xp" in rdef.get("bonuses", {}):
+                    return rdef["bonuses"]["xp"]
+            return 1.0
+    except Exception:
+        return 1.0
+
+
+async def is_enemy_nearby(player_id: int, location_id: str) -> bool:
+    try:
+        async for db in get_db():
+            result = await db.execute(
+                select(NPCRelationshipModel)
+                .where(NPCRelationshipModel.target_id == str(player_id))
+                .where(NPCRelationshipModel.relation_type == "enemy")
+            )
+            enemies = result.scalars().all()
+            for e in enemies:
+                npc_result = await db.execute(
+                    select(NPCModel).where(NPCModel.npc_id == e.npc_id)
+                )
+                npc = npc_result.scalar_one_or_none()
+                if npc and npc.location_str == location_id:
+                    return True
+            return False
+    except Exception:
+        return False
+
 DEATH_REASONS = [
     "старость", "болезнь", "отравление", "убийство", "стихия",
     "бандиты", "нежить", "дракон", "голод", "пропажа",
@@ -56,10 +125,6 @@ class NPCLifeEngine:
     async def _process_npc_goals(self, game_hour: int):
         weather = "clear"
         try:
-            from services.container import services as _svc
-            world_state = _svc.world_engine.get_state()
-            if world_state:
-                pass
             from sqlalchemy import text
             async for db_check in get_db():
                 r = await db_check.execute(text("SELECT current_weather FROM locations ORDER BY RANDOM() LIMIT 1"))

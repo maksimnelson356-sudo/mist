@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from database.base import get_db
 from database.models.player_home import PlayerHomeModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 logger = logging.getLogger("MIST.home")
@@ -268,6 +269,19 @@ class HomeService:
                         elif season == "autumn":
                             income += 10
 
+                if income > 0:
+                    user_result = await db.execute(
+                        select(UserModel).where(UserModel.user_id == home.owner_id)
+                    )
+                    user = user_result.scalar_one_or_none()
+                    if user:
+                        new_gold = user.gold + income
+                        await db.execute(
+                            update(UserModel)
+                            .where(UserModel.user_id == home.owner_id)
+                            .values(gold=new_gold)
+                        )
+
                 await db.execute(
                     update(PlayerHomeModel)
                     .where(PlayerHomeModel.id == home.id)
@@ -499,7 +513,6 @@ class HomeService:
         if user["gold"] < gold_cost:
             return {"success": False, "message": f"Недостаточно золота. Нужно: {gold_cost} 🪙"}
 
-        from sqlalchemy import text, update as sa_update
         async for db in get_db():
             result = await db.execute(
                 text("SELECT id, name, danger_level, food_supply, population FROM locations WHERE id = :lid OR location_id = :lid"),
@@ -515,7 +528,7 @@ class HomeService:
                 {"d": new_danger, "id": loc["id"]},
             )
             await db.execute(
-                sa_update(UserModel)
+                update(UserModel)
                 .where(UserModel.user_id == user_id)
                 .values(gold=user["gold"] - gold_cost)
             )

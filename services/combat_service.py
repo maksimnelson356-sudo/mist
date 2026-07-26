@@ -256,6 +256,14 @@ class CombatService:
                 result_log["outcome"] = "victory"
                 result_log["xp_gained"] = creature["xp_reward"]
 
+                try:
+                    from services.npc_life_engine import get_xp_multiplier
+                    xp_mult = await get_xp_multiplier(user_id)
+                    if xp_mult != 1.0:
+                        result_log["xp_gained"] = int(creature["xp_reward"] * xp_mult)
+                except Exception:
+                    pass
+
                 loot_table = creature.get("loot_table", [])
                 for loot_item in loot_table:
                     if random.random() < loot_item.get("chance", 0.5):

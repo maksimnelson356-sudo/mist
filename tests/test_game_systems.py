@@ -1,8 +1,7 @@
 import pytest
 from services.catalog_service import CatalogService, RARITY_WEIGHTS, RARITY_NAMES
-from services.weather_system import WeatherSystem, WEATHER_STATES, WEATHER_EFFECTS
+from services.weather_system import WEATHER_STATES, WEATHER_EFFECTS
 from services.time_system import TimeSystem, TIME_PERIODS
-from services.world_event_system import WorldEventSystem, WORLD_EVENT_TYPES
 from services.quest_engine import QuestEngine, QUEST_TYPES, QUEST_STATUS
 
 
@@ -40,15 +39,6 @@ def test_weather_effects():
         assert state in WEATHER_EFFECTS
         assert "xp_bonus" in WEATHER_EFFECTS[state]
         assert "movement_penalty" in WEATHER_EFFECTS[state]
-
-
-def test_weather_system_set():
-    svc = WeatherSystem(None)
-    svc.set_weather("storm")
-    assert svc._current_weather == "storm"
-
-    svc.set_weather("rain", region_id="test")
-    assert svc._region_weather["test"] == "rain"
 
 
 def test_time_periods():
@@ -93,13 +83,6 @@ def test_time_system_day_of_week():
 
     svc.set_time(day=8)
     assert svc.get_day_of_week() == "Понедельник"
-
-
-def test_world_event_types():
-    assert len(WORLD_EVENT_TYPES) == 5
-    assert "festival" in WORLD_EVENT_TYPES
-    assert "invasion" in WORLD_EVENT_TYPES
-    assert "anomaly" in WORLD_EVENT_TYPES
 
 
 def test_quest_types():

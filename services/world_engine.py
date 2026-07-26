@@ -224,6 +224,18 @@ class WorldEngine:
         if self.world_memory:
             await self.world_memory.expire_old_memories()
 
+        if self.world_memory:
+            try:
+                season_name = SEASON_NAMES.get(self._state.get("season", ""), "")
+                await self.world_memory.add_memory(
+                    memory_type="discovery",
+                    location_id="heart_of_mist",
+                    title=f"Наступил День {new_day}",
+                    description=f"День {new_day}, {season_name}. Мир продолжает жить.",
+                )
+            except Exception as e:
+                logger.warning(f"World memory day error: {e}")
+
         if self.seasonal_quest:
             await self.seasonal_quest.activate_seasonal_quests(self._state["season"])
 
@@ -304,6 +316,17 @@ class WorldEngine:
                             )
                         except Exception as e:
                             logger.warning(f"Event quest generation error: {e}")
+
+                    if self.world_memory:
+                        try:
+                            await self.world_memory.add_memory(
+                                memory_type="world_event",
+                                location_id=target_loc["id"],
+                                title=ev_def["name"],
+                                description=ev_def["description"],
+                            )
+                        except Exception as e:
+                            logger.warning(f"World memory error: {e}")
 
             await db.commit()
         return events_count
@@ -441,6 +464,17 @@ class WorldEngine:
             importance=Importance.COMMON,
         )
         logger.info(f"Сезон: {old_name} → {new_name}")
+
+        if self.world_memory:
+            try:
+                await self.world_memory.add_memory(
+                    memory_type="discovery",
+                    location_id="heart_of_mist",
+                    title=f"Смена сезона: {old_name} → {new_name}",
+                    description=f"Природа меняется. {old_name} уступает место {new_name}.",
+                )
+            except Exception as e:
+                logger.warning(f"World memory season error: {e}")
 
         if self.seasonal_event:
             await self.seasonal_event.trigger_season_event(new_season, self._state["game_day"])

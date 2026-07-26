@@ -21,7 +21,6 @@ from services.exploration_service import ExplorationService
 from services.catalog_service import CatalogService
 from services.economy_service import EconomyService
 from services.admin_service import AdminService
-from services.world_event_system import WorldEventSystem
 from services.world_engine import WorldEngine
 from services.ecosystem_service import EcosystemService
 from services.artifact_service import ArtifactService
@@ -73,7 +72,6 @@ class ServiceContainer:
         self.catalog = CatalogService(self.chronicle)
         self.economy = EconomyService(self.chronicle, self.player)
         self.admin = AdminService(self.chronicle, self.player)
-        self.world_events = WorldEventSystem(self.chronicle)
 
         self.ecosystem = EcosystemService(self.chronicle)
         self.artifact = ArtifactService(self.chronicle)

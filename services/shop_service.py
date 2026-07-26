@@ -152,7 +152,15 @@ class ShopService:
                 rep_mod = 1.25
 
             world_mod = await self._get_world_price_modifier(item_id)
-            price = int(shop_entry.price * rep_mod * world_mod)
+
+            npc_mod = 1.0
+            try:
+                from services.npc_life_engine import get_trade_multiplier
+                npc_mod = await get_trade_multiplier(user_id, shop_id)
+            except Exception:
+                pass
+
+            price = int(shop_entry.price * rep_mod * world_mod * npc_mod)
 
             if user["gold"] < price:
                 return {"success": False, "message": f"Недостаточно золота. Нужно: {price} 🪙, есть: {user['gold']} 🪙"}
