@@ -2,7 +2,7 @@
 
 Telegram RPG бот с живым миром, квестами, PvP и гильдиями.
 
-**Версия**: 0.5.1  
+**Версия**: 0.7.0  
 **Движок**: SQLite + SQLAlchemy async + aiosqlite  
 **Бот**: aiogram 3.12
 

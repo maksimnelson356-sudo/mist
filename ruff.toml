@@ -1,0 +1,23 @@
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "W",     # pycodestyle warnings
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (aiogram pattern)
+    "SIM108", # ternary operator (readability preference)
+]
+
+[lint.per-file-ignores]
+"seed.py" = ["E", "F", "W"]
+"game_engine.py" = ["E", "F", "W"]
+"tests/*" = ["E", "F", "W", "B"]

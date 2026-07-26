@@ -1,5 +1,3 @@
-import json
-import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import CommandStart
@@ -7,7 +5,6 @@ from services.container import services
 from scenes import LOC_SCENES, CREATURE_SCENES, SCENE_DIVIDER
 
 router = Router()
-logger = logging.getLogger("MIST.game")
 
 
 def is_my_message(message: Message, bot_username: str) -> bool:
@@ -863,7 +860,6 @@ async def cb_status(callback: CallbackQuery):
     loc = await services.movement.get_location(user["current_location"])
     weather = loc.get("current_weather", "clear") if loc else "clear"
     from services.weather_system import WEATHER_STATES
-    from services.time_system import TIME_PERIODS
     w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
 
     text = (
