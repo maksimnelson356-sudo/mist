@@ -85,6 +85,21 @@ class ShopService:
         except Exception as e:
             logger.warning(f"World price modifier error: {e}", exc_info=True)
 
+        try:
+            from services.container import services
+            ws = services.world_engine.get_state()
+            if ws:
+                prosperity = ws.get("prosperity", 50)
+                chaos = ws.get("chaos", 10)
+                if prosperity > 70:
+                    modifier *= 0.90
+                elif prosperity < 30:
+                    modifier *= 1.15
+                if chaos > 60:
+                    modifier *= 1.10
+        except Exception:
+            pass
+
         return modifier
 
     async def get_shop_items(self, shop_id: str) -> list:

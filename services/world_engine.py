@@ -208,6 +208,7 @@ class WorldEngine:
         await self._expire_events(new_day)
         await self._trigger_chain_events(new_day)
         await self._recalc_world_pressure()
+        await self._recalculate_prosperity_chaos()
 
         if self.ecosystem:
             await self.ecosystem.tick(self._state["game_hour"], self._state["season"])
@@ -458,6 +459,37 @@ class WorldEngine:
             await db.execute(
                 text("UPDATE world_state SET world_pressure = :p WHERE id = :id"),
                 {"p": new_pressure, "id": self._state["id"]},
+            )
+            await db.commit()
+
+    async def _recalculate_prosperity_chaos(self):
+        async for db in get_db():
+            result = await db.execute(
+                text("SELECT AVG(wealth) as avg_wealth, AVG(food_supply) as avg_food, "
+                     "AVG(danger_level) as avg_danger FROM locations")
+            )
+            row = result.mappings().first()
+            if not row:
+                return
+
+            avg_wealth = row.get("avg_wealth") or 30
+            avg_food = row.get("avg_food") or 50
+            avg_danger = row.get("avg_danger") or 30
+
+            new_prosperity = int(min(100, max(0, (avg_wealth + avg_food) / 2)))
+
+            result = await db.execute(
+                text("SELECT COUNT(*) FROM world_event_records WHERE is_active = 1")
+            )
+            active_events = result.scalar() or 0
+            new_chaos = int(min(100, max(0, avg_danger + active_events * 5)))
+
+            self._state["prosperity"] = new_prosperity
+            self._state["chaos"] = new_chaos
+
+            await db.execute(
+                text("UPDATE world_state SET prosperity = :p, chaos = :c WHERE id = :id"),
+                {"p": new_prosperity, "c": new_chaos, "id": self._state["id"]},
             )
             await db.commit()
 
