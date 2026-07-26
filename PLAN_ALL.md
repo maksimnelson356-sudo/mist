@@ -1,8 +1,42 @@
 # MIST — Полный план реализации (MIST-001 → MIST-030 + Genesis)
 
-**Дата**: 2026-07-25
-**Статус**: ✅ Все 30 модулей + Genesis (G1-G6) + Phase 2 (Living World)
+**Дата**: 2026-07-26
+**Статус**: ✅ Все 30 модулей + Genesis (G1-G6) + Phase 2 (Living World) + Phase 3 (Weather/Events/Repair)
 **Тесты**: 72/72 проходят
+
+---
+
+## Phase 3 — Living World: Погода, Квесты, Ремонт
+
+### Phase A: Погода влияет на всё ✅
+
+| Компонент | Описание | Статус |
+|---|---|---|
+| WEATHER_EFFECTS | Расширены: hunger, encounter, danger, price, npc_shelter, risk | ✅ |
+| movement_service | Погода влияет на стоимость хода + шанс встречи | ✅ |
+| exploration_service | Погода модифицирует XP и шанс получения урона | ✅ |
+| shop_service | Динамические цены: погода + еда + опасность + сезон | ✅ |
+| ecosystem_service | Создания реагируют на погоду/ночь (CREATURE_WEATHER_BEHAVIOR) | ✅ |
+| npc_service | Диалоги NPC показывают состояние мира + состояние NPC | ✅ |
+| npc_life_engine | NPC укрываются от шторма (npc_shelter) | ✅ |
+
+### Phase B: Event-квесты ✅
+
+| Компонент | Описание | Статус |
+|---|---|---|
+| event_quest_service | Генерация квестов из 10 типов событий | ✅ |
+| chain_event квесты | Квесты из цепных реакций | ✅ |
+| world_engine | Интеграция генерации квестов при событиях | ✅ |
+
+### Phase C: Ремонт и строительство ✅
+
+| Компонент | Описание | Статус |
+|---|---|---|
+| repair_home | Активный ремонт дома за золото (дерево/камень/железо) | ✅ |
+| build_defense | Строительство защит (стена/плотина/противопожарный) | ✅ |
+| repair_location | Восстановление локаций после событий | ✅ |
+| handlers/home.py | Хендлеры: home_repair, home_defenses, restore_location | ✅ |
+| handlers/game.py | Кнопка "Восстановить" в cb_look при danger > 0 | ✅ |
 
 ---
 

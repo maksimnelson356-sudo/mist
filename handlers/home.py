@@ -54,6 +54,8 @@ async def cb_home_menu(callback: CallbackQuery):
         [InlineKeyboardButton(text="🚪 Комнаты", callback_data="home_rooms")],
         [InlineKeyboardButton(text="📦 Хранилище", callback_data="home_storage")],
         [InlineKeyboardButton(text="⬆️ Улучшить", callback_data="home_upgrade")],
+        [InlineKeyboardButton(text="🔧 Ремонт", callback_data="home_repair")],
+        [InlineKeyboardButton(text="🏗 Защита", callback_data="home_defenses")],
         [InlineKeyboardButton(text="📜 История", callback_data="home_history")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ]
@@ -402,3 +404,200 @@ async def cb_home_withdraw(callback: CallbackQuery):
     result = await services.home.storage_withdraw(callback.from_user.id, item_id)
     await callback.answer(result["message"], show_alert=True)
     await cb_home_storage(callback)
+
+
+REPAIR_MATERIALS = {
+    "wood": {"name": "Дерево", "icon": "🪵", "gold": 20, "gain": "+10%"},
+    "stone": {"name": "Камень", "icon": "🪨", "gold": 30, "gain": "+15%"},
+    "iron": {"name": "Железо", "icon": "⚙️", "gold": 50, "gain": "+25%"},
+}
+
+DEFENSE_TYPES = {
+    "wall": {"name": "Стена", "icon": "🧱", "gold": 100, "defense": "+10"},
+    "dam": {"name": "Плотина", "icon": "🌊", "gold": 150, "defense": "+15"},
+    "firebreak": {"name": "Противопожарный разрыв", "icon": "🔥", "gold": 80, "defense": "+8"},
+}
+
+RESTORE_MATERIALS = {
+    "wood": {"name": "Дерево", "icon": "🪵", "gold": 50, "danger": "-10"},
+    "stone": {"name": "Камень", "icon": "🪨", "gold": 80, "danger": "-15"},
+    "iron": {"name": "Железо", "icon": "⚙️", "gold": 120, "danger": "-25"},
+}
+
+
+@router.callback_query(F.data == "home_repair")
+async def cb_home_repair(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    home = await services.home.get_home(user_id)
+    if not home:
+        await callback.answer("У тебя нет дома.", show_alert=True)
+        return
+
+    condition = home["condition"]
+    if condition >= 100:
+        await callback.answer("Дом уже в идеальном состоянии!", show_alert=True)
+        return
+
+    user = await services.player.get(user_id)
+    gold = user["gold"] if user else 0
+
+    condition_icon = "🟢" if condition >= 70 else "🟡" if condition >= 40 else "🔴"
+
+    text = (
+        f"🔧 <b>Ремонт дома</b>\n\n"
+        f"{condition_icon} Состояние: {condition}%\n"
+        f"💰 Золото: {gold} 🪙\n\n"
+        "Выбери материал для ремонта:"
+    )
+
+    buttons = []
+    for mat_id, mat in REPAIR_MATERIALS.items():
+        can_afford = "✅" if gold >= mat["gold"] else "❌"
+        buttons.append([InlineKeyboardButton(
+            text=f"{mat['icon']} {mat['name']} — {mat['gold']} 🪙 ({mat['gain']}) {can_afford}",
+            callback_data=f"home_repair:{mat_id}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
+
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("home_repair:"))
+async def cb_home_repair_confirm(callback: CallbackQuery):
+    material = callback.data.split(":")[1]
+    result = await services.home.repair_home(callback.from_user.id, material)
+
+    if result["success"]:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔧 Ещё ремонт", callback_data="home_repair")],
+            [InlineKeyboardButton(text="🏠 Дом", callback_data="home_menu")],
+        ])
+    else:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="home_repair")],
+        ])
+
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "home_defenses")
+async def cb_home_defenses(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    home = await services.home.get_home(user_id)
+    if not home:
+        await callback.answer("У тебя нет дома.", show_alert=True)
+        return
+
+    user = await services.player.get(user_id)
+    gold = user["gold"] if user else 0
+
+    upgrades = home.get("upgrades", {})
+    text = (
+        f"🏗 <b>Строительство защит</b>\n\n"
+        f"🛡 Текущая защита: {home['defenses']}\n"
+        f"💰 Золото: {gold} 🪙\n\n"
+    )
+
+    if upgrades:
+        text += "<b>Построено:</b>\n"
+        for dtype, count in upgrades.items():
+            dname = DEFENSE_TYPES.get(dtype, {}).get("name", dtype)
+            text += f"  • {dname}: {count} шт.\n"
+        text += "\n"
+
+    text += "Выбери постройку:"
+
+    buttons = []
+    for dtype, dinfo in DEFENSE_TYPES.items():
+        can_afford = "✅" if gold >= dinfo["gold"] else "❌"
+        buttons.append([InlineKeyboardButton(
+            text=f"{dinfo['icon']} {dinfo['name']} — {dinfo['gold']} 🪙 (🛡{dinfo['defense']}) {can_afford}",
+            callback_data=f"home_build_def:{dtype}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
+
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("home_build_def:"))
+async def cb_home_defense_confirm(callback: CallbackQuery):
+    defense_type = callback.data.split(":")[1]
+    result = await services.home.build_defense(callback.from_user.id, defense_type)
+
+    if result["success"]:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🏗 Ещё постройка", callback_data="home_defenses")],
+            [InlineKeyboardButton(text="🏠 Дом", callback_data="home_menu")],
+        ])
+    else:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="home_defenses")],
+        ])
+
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("restore_loc:"))
+async def cb_restore_location(callback: CallbackQuery):
+    location_id = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+
+    loc = await services.movement.get_location(location_id)
+    if not loc:
+        await callback.answer("Локация не найдена.", show_alert=True)
+        return
+
+    danger = loc.get("danger_level", 0)
+    if danger <= 0:
+        await callback.answer("Эта локация уже безопасна!", show_alert=True)
+        return
+
+    user = await services.player.get(user_id)
+    gold = user["gold"] if user else 0
+
+    danger_icon = "🔴" if danger >= 50 else "🟡" if danger >= 20 else "🟢"
+
+    text = (
+        f"🔧 <b>Восстановление: {loc['name']}</b>\n\n"
+        f"{danger_icon} Опасность: {danger}\n"
+        f"💰 Золото: {gold} 🪙\n\n"
+        "Выбери материал:"
+    )
+
+    buttons = []
+    for mat_id, mat in RESTORE_MATERIALS.items():
+        can_afford = "✅" if gold >= mat["gold"] else "❌"
+        buttons.append([InlineKeyboardButton(
+            text=f"{mat['icon']} {mat['name']} — {mat['gold']} 🪙 ({mat['danger']}) {can_afford}",
+            callback_data=f"restore_confirm:{location_id}:{mat_id}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="look")])
+
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("restore_confirm:"))
+async def cb_restore_confirm(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    location_id = parts[1]
+    material = parts[2]
+
+    result = await services.home.repair_location(callback.from_user.id, location_id, material)
+
+    if result["success"]:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔍 Осмотреться", callback_data="look")],
+            [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
+        ])
+    else:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ Назад", callback_data=f"restore_loc:{location_id}")],
+        ])
+
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()

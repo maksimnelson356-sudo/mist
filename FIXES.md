@@ -73,3 +73,59 @@
 - **Файл:** `services/player_service.py`
 - **Проблема:** `datetime.now(timezone.utc)` (aware) минус `last_seen` из SQLite (naive) вызывает `TypeError: can't subtract offset-naive and offset-aware datetimes`.
 - **Исправление:** Заменён `datetime.now(timezone.utc)` на `datetime.utcnow()` в `get_catchup_summary` для совместимости с timezone-naive SQLite датами.
+
+---
+
+## Living World — Критические баги (Phase 2 fix, 2026-07-26)
+
+### BUG 12: `_on_new_day` инвертирована логика сообщений (КРИТИЧЕСКИЙ)
+- **Файл:** `services/world_engine.py`
+- **Исправление:** Сообщение отправлялось когда `on_new_day == False` → инвертировано.
+
+### BUG 13: location_id не совпадает в `get_location_states` (КРИТИЧЕСКИЙ)
+- **Файл:** `services/world_engine.py`
+- **Исправление:** Использовался `loc_id` из keys вместо `loc["id"]`.
+
+### BUG 14: SQL injection в `_apply_event_effects` (КРИТИЧЕСКИЙ)
+- **Файл:** `services/world_engine.py`
+- **Исправление:** Добавлен allowlist допустимых столбцов.
+
+### BUG 15: 2 DB сессии вместо 1 в `_generate_world_events` (ВЫСОКИЙ)
+- **Файл:** `services/world_engine.py`
+- **Исправление:** Объединены в одну сессию.
+
+### BUG 16: `datetime.utcnow()` deprecated (СРЕДНИЙ)
+- **Файлы:** world_engine.py, world_boss_service.py, home_service.py, npc_life_engine.py, world_memory_service.py
+- **Исправление:** Заменено на `datetime.now(timezone.utc)`.
+
+### BUG 17: `_running = False` в `__init__` WorldBossService (ВЫСОКИЙ)
+- **Файл:** `services/world_boss_service.py`
+- **Исправление:** Убрана невалидная инициализация.
+
+### BUG 18: Chinese characters в UI (СРЕДНИЙ)
+- **Файл:** `services/seasonal_event_service.py`
+- **Исправление:** Заменены на русские.
+
+### BUG 19: Population check через `len(living)` (КРИТИЧЕСКИЙ)
+- **Файл:** `services/npc_life_engine.py`
+- **Исправление:** Заменено на `COUNT(*)`.
+
+### BUG 20: Memory expiry через UPDATE вместо DELETE (КРИТИЧЕСКИЙ)
+- **Файл:** `services/world_memory_service.py`
+- **Исправление:** `expire_old_memories` теперь использует `DELETE`.
+
+### BUG 21: `regions=None` вместо `regions="all"` в events (ВЫСОКИЙ)
+- **Файл:** `services/world_event_defs.py`
+- **Исправление:** Заменено на `regions="all"` + фильтр.
+
+### BUG 22: Хардкод TimeSystem в handlers (ВЫСОКИЙ)
+- **Файлы:** handlers/profile.py, services/combat_service.py, services/movement_service.py
+- **Исправление:** Все читают время из WorldEngine.
+
+### BUG 23: Storage capacity проверяет `len(storage)` вместо `sum(qty)` (КРИТИЧЕСКИЙ)
+- **Файл:** `services/home_service.py`
+- **Исправление:** Заменено на `sum(item["qty"])`.
+
+### BUG 24: Ecosystem start_loop/stop пустые (НИЗКИЙ)
+- **Файл:** `services/ecosystem_service.py`
+- **Исправление:** Убраны пустые методы, миграция 6≤hour≤8.

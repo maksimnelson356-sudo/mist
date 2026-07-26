@@ -303,6 +303,11 @@ async def cb_look(callback: CallbackQuery):
     w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
     text += f"\n{w_info['icon']} <i>{w_info['name']}</i>\n"
 
+    danger = loc.get("danger_level", 0) if loc else 0
+    if danger > 0:
+        danger_icon = "🔴" if danger >= 50 else "🟡" if danger >= 20 else "🟢"
+        text += f"\n{danger_icon} Опасность: {danger}\n"
+
     if creatures:
         text += "\n👁 <b>Здесь есть:</b>\n"
         for c in creatures:
@@ -333,6 +338,9 @@ async def cb_look(callback: CallbackQuery):
 
     if ground:
         buttons.append([InlineKeyboardButton(text=f"📦 Подобрать ({len(ground)})", callback_data="ground_menu")])
+
+    if danger > 0:
+        buttons.append([InlineKeyboardButton(text="🔧 Восстановить локацию", callback_data=f"restore_loc:{user['current_location']}")])
 
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
