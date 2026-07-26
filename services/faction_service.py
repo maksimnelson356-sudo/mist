@@ -1,9 +1,9 @@
 import logging
+
 from sqlalchemy import select, update
-from datetime import datetime
 
 from database.base import get_db
-from database.models.faction import FactionModel, PlayerFactionModel
+from database.models.faction import PlayerFactionModel
 from domain.events import EventType, Importance
 
 logger = logging.getLogger("MIST.faction")

@@ -1,11 +1,10 @@
 import json
 from datetime import datetime
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from database.base import get_db
 from database.models.analytics import AnalyticsEventModel
-from domain.events import EventType, Importance
 
 
 class AnalyticsService:

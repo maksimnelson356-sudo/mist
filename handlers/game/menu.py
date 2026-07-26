@@ -1,8 +1,9 @@
 from aiogram import F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from services.container import services
 from scenes import LOC_SCENES, SCENE_DIVIDER
+from services.container import services
+
 from . import _shared as G
 
 router = G.router
@@ -26,6 +27,7 @@ async def cb_main_menu(callback: CallbackQuery):
     if catchup and catchup.get("hunger_loss", 0) > 0:
         new_hunger = catchup["new_hunger"]
         from sqlalchemy import update as sa_update
+
         from database.base import get_db
         from database.models.user import UserModel
         async for db in get_db():

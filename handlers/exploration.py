@@ -1,6 +1,6 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import Router
 from aiogram.filters import Command
+from aiogram.types import Message
 
 from services.container import services
 
@@ -17,7 +17,7 @@ async def cmd_explore(message: Message):
 
     text = result["message"]
     if result.get("first_discover"):
-        text += f"\n\n🌟 Первый исследователь этой области!"
+        text += "\n\n🌟 Первый исследователь этой области!"
         text += f"\n📊 Всего открыто: {result.get('visited_count', 1)}"
 
     await message.answer(text)

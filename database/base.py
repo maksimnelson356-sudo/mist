@@ -1,8 +1,9 @@
 import logging
-from sqlalchemy import text, String, Integer, Float, Boolean, DateTime, Text, JSON
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.sql import func
+
 from config import DB_PATH
 
 logger = logging.getLogger("MIST.db")
@@ -80,7 +81,6 @@ async def get_session() -> AsyncSession:
 
 
 async def _ensure_columns(engine):
-    import database.models
     async with engine.begin() as conn:
         tables_result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
         db_tables = {row[0] for row in tables_result.fetchall()}

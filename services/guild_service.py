@@ -1,13 +1,11 @@
-import json
 from datetime import datetime
 
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import func, select, update
 
 from database.base import get_db
-from database.models.guild import GuildModel, GuildMemberModel
+from database.models.guild import GuildMemberModel, GuildModel
 from database.models.user import UserModel
 from domain.events import EventType, Importance
-
 
 GUILD_ROLES = {
     "leader": {"name": "Лидер", "permissions": ["all"]},

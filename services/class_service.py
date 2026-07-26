@@ -1,5 +1,6 @@
 import logging
-from sqlalchemy import select, update
+
+from sqlalchemy import update
 
 from database.base import get_db
 from database.models.user import UserModel

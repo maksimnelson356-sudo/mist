@@ -1,7 +1,6 @@
-import random
 from datetime import datetime
-from domain.events import EventType, Importance
 
+from domain.events import EventType, Importance
 
 WORLD_EVENT_TYPES = {
     "festival": {"name": "Праздник", "icon": "🎉", "duration_hours": 24, "xp_bonus": 1.5},

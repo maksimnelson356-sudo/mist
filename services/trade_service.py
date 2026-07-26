@@ -6,7 +6,6 @@ from sqlalchemy import select, update
 from database.base import get_db
 from database.models.trade import PlayerTradeModel
 from database.models.user import UserModel
-from database.models.inventory import InventoryModel
 from domain.events import EventType, Importance
 
 

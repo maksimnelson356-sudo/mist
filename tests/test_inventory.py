@@ -1,6 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from tests.conftest import MockChronicle, mock_get_db, make_mock_session
+
+import pytest
+
+from tests.conftest import MockChronicle, make_mock_session, mock_get_db
 
 
 def _make_inv_row(item_id="wolf_fang", quantity=5, is_magic=False):

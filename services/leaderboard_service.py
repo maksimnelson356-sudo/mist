@@ -1,5 +1,7 @@
 import logging
+
 from sqlalchemy import text
+
 from database.base import get_db
 
 logger = logging.getLogger("MIST.leaderboard")

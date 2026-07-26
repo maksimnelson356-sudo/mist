@@ -1,6 +1,6 @@
 from datetime import datetime
-from domain.events import EventType, Importance
 
+from domain.events import EventType, Importance
 
 TIME_PERIODS = {
     "morning": {"name": "Утро", "icon": "🌅", "hours": (6, 11)},

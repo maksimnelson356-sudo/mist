@@ -1,6 +1,7 @@
 import logging
-from sqlalchemy import select, update, text
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from sqlalchemy import select, text, update
 
 from database.base import get_db
 from database.models.player_home import PlayerHomeModel
@@ -115,7 +116,7 @@ class HomeService:
             await db.execute(
                 update(PlayerHomeModel)
                 .where(PlayerHomeModel.owner_id == owner_id)
-                .values(last_visited_at=datetime.now(timezone.utc))
+                .values(last_visited_at=datetime.now(UTC))
             )
             await db.commit()
 

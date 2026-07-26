@@ -1,10 +1,10 @@
 import logging
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select, update, delete, text
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import delete, select, text
 
 from database.base import get_db
 from database.models.world_memory import WorldMemoryModel
-from domain.events import EventType, Importance
 
 logger = logging.getLogger("MIST.world_memory")
 
@@ -36,7 +36,7 @@ class WorldMemoryService:
 
         expires_at = None
         if not type_def["permanent"] and type_def.get("ttl_days"):
-            expires_at = datetime.now(timezone.utc) + timedelta(days=type_def["ttl_days"])
+            expires_at = datetime.now(UTC) + timedelta(days=type_def["ttl_days"])
 
         if impact_level is None:
             impact_level = type_def["impact"]
@@ -69,7 +69,7 @@ class WorldMemoryService:
             result = await db.execute(
                 select(WorldMemoryModel)
                 .where(WorldMemoryModel.location_id == location_id)
-                .where(WorldMemoryModel.expires_at > datetime.now(timezone.utc))
+                .where(WorldMemoryModel.expires_at > datetime.now(UTC))
                 .order_by(WorldMemoryModel.impact_level.desc())
                 .limit(limit)
             )
@@ -104,7 +104,7 @@ class WorldMemoryService:
         async for db in get_db():
             result = await db.execute(
                 select(WorldMemoryModel)
-                .where(WorldMemoryModel.expires_at > datetime.now(timezone.utc))
+                .where(WorldMemoryModel.expires_at > datetime.now(UTC))
                 .order_by(WorldMemoryModel.created_at.desc())
                 .limit(limit)
             )
@@ -123,7 +123,7 @@ class WorldMemoryService:
             await db.execute(
                 delete(WorldMemoryModel)
                 .where(WorldMemoryModel.is_permanent == False)
-                .where(WorldMemoryModel.expires_at < datetime.now(timezone.utc))
+                .where(WorldMemoryModel.expires_at < datetime.now(UTC))
             )
             await db.commit()
 
@@ -133,6 +133,6 @@ class WorldMemoryService:
             permanent = (await db.execute(text("SELECT COUNT(*) FROM world_memories WHERE is_permanent = 1"))).scalar() or 0
             active = (await db.execute(
                 text("SELECT COUNT(*) FROM world_memories WHERE expires_at > :now"),
-                {"now": datetime.now(timezone.utc)},
+                {"now": datetime.now(UTC)},
             )).scalar() or 0
             return {"total": total, "permanent": permanent, "active": active}

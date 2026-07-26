@@ -1,7 +1,7 @@
-import json
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models.item import ItemTemplateModel, GroundItemModel, SecretModel
+
+from database.models.item import GroundItemModel, ItemTemplateModel
 
 
 class ItemRepository:

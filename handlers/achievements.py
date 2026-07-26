@@ -1,7 +1,8 @@
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-from services.container import services
+
 from services.achievement_service import ACHIEVEMENT_DEFS, CATEGORY_ICONS, CATEGORY_NAMES
+from services.container import services
 
 router = Router()
 

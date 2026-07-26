@@ -1,6 +1,6 @@
-import json
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database.models.shop import ShopItemModel
 
 

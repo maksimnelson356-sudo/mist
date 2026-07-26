@@ -1,6 +1,8 @@
 import logging
 import random
+
 from sqlalchemy import text
+
 from database.base import get_db
 from database.models.world_event_record import WorldEventRecordModel
 from domain.events import EventType, Importance

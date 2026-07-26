@@ -1,6 +1,9 @@
 import json
+from datetime import UTC
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database.models.location import LocationModel
 
 
@@ -43,13 +46,13 @@ class LocationRepository:
 
     @staticmethod
     async def set_discovered(session: AsyncSession, location_id: str, user_id: int):
-        from datetime import datetime, timezone
+        from datetime import datetime
         stmt = update(LocationModel).where(
             LocationModel.location_id == location_id
         ).values(
             discovered=True,
             discovered_by=user_id,
-            discovered_at=datetime.now(timezone.utc),
+            discovered_at=datetime.now(UTC),
         )
         await session.execute(stmt)
         await session.commit()

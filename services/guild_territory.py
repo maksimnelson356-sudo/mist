@@ -1,8 +1,9 @@
 import logging
-from sqlalchemy import select, update, text
+
+from sqlalchemy import select, text, update
 
 from database.base import get_db
-from database.models.guild import GuildModel, GuildMemberModel
+from database.models.guild import GuildMemberModel, GuildModel
 from database.models.location import LocationModel
 
 logger = logging.getLogger("MIST.guild_territory")

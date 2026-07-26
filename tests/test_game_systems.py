@@ -1,8 +1,9 @@
 import pytest
-from services.catalog_service import CatalogService, RARITY_WEIGHTS, RARITY_NAMES
-from services.weather_system import WEATHER_STATES, WEATHER_EFFECTS
-from services.time_system import TimeSystem, TIME_PERIODS
-from services.quest_engine import QuestEngine, QUEST_TYPES, QUEST_STATUS
+
+from services.catalog_service import RARITY_NAMES, RARITY_WEIGHTS, CatalogService
+from services.quest_engine import QUEST_STATUS, QUEST_TYPES, QuestEngine
+from services.time_system import TIME_PERIODS, TimeSystem
+from services.weather_system import WEATHER_EFFECTS, WEATHER_STATES
 
 
 def test_rarity_weights():

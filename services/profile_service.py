@@ -1,8 +1,4 @@
-from sqlalchemy import select, update
-from sqlalchemy.sql import func
 
-from database.base import get_db
-from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 

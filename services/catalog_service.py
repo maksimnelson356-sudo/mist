@@ -1,10 +1,9 @@
 import json
+
 from sqlalchemy import select
 
 from database.base import get_db
 from database.models.item import ItemTemplateModel
-from domain.events import EventType, Importance
-
 
 RARITY_WEIGHTS = {
     "common": 1.0,

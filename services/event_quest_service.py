@@ -1,7 +1,6 @@
 import logging
-import random
-from sqlalchemy import select, text
-from datetime import datetime, timezone
+
+from sqlalchemy import select
 
 from database.base import get_db
 from database.models.quest import QuestModel

@@ -5,8 +5,8 @@ from sqlalchemy import select, update
 from database.base import get_db
 from database.models.crafting import CraftingRecipeModel, UserCraftingModel
 from database.models.inventory import InventoryModel
-from database.models.user import UserModel
 from database.models.location import LocationModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 

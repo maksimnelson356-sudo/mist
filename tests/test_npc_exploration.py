@@ -1,7 +1,8 @@
 import pytest
-from services.npc_service import NPCService, NPC_TYPES, RELATION_LEVELS
-from services.npc_memory_service import NPCMemoryService, ACTION_DELTAS
-from services.npc_scheduler import NPCScheduler, TIME_PERIODS
+
+from services.npc_memory_service import ACTION_DELTAS, NPCMemoryService
+from services.npc_scheduler import TIME_PERIODS, NPCScheduler
+from services.npc_service import NPC_TYPES, RELATION_LEVELS, NPCService
 
 
 def test_npc_types():

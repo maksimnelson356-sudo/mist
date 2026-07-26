@@ -1,5 +1,5 @@
 import logging
-import random
+
 from sqlalchemy import select, text
 
 from database.base import get_db

@@ -1,15 +1,13 @@
 import json
 from datetime import datetime
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 
 from database.base import get_db
+from database.models.inventory import InventoryModel
 from database.models.quest import QuestModel, UserQuestModel
 from database.models.user import UserModel
-from database.models.item import ItemTemplateModel
-from database.models.inventory import InventoryModel
 from domain.events import EventType, Importance
-
 
 CLASS_QUESTS = {
     "warrior": [
@@ -379,8 +377,9 @@ class QuestService:
 
     async def discover_legend(self, legend_id: str, legend_type: str, name: str, description: str, player_id: int) -> dict:
         async for db in get_db():
-            from database.models.quest import LegendModel
             from sqlalchemy import select as sel
+
+            from database.models.quest import LegendModel
             stmt = sel(LegendModel).where(LegendModel.legend_id == legend_id)
             result = await db.execute(stmt)
             existing = result.scalar_one_or_none()
@@ -410,8 +409,9 @@ class QuestService:
 
     async def get_legend_stats(self) -> dict:
         async for db in get_db():
-            from database.models.quest import LegendModel
             from sqlalchemy import func as sa_func
+
+            from database.models.quest import LegendModel
 
             stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.category == "creature")
             creatures_found = (await db.execute(stmt)).scalar() or 0

@@ -1,6 +1,8 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from tests.conftest import MockChronicle, MockUserModel, mock_get_db, make_mock_session
+
+import pytest
+
+from tests.conftest import MockChronicle, MockUserModel, make_mock_session, mock_get_db
 
 
 def _mock_user_service(gold=100):

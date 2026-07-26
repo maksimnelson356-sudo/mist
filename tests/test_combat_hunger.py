@@ -1,5 +1,6 @@
 import pytest
-from services.combat_service import WEATHER_COMBAT_EFFECTS, TIME_COMBAT_EFFECTS
+
+from services.combat_service import TIME_COMBAT_EFFECTS, WEATHER_COMBAT_EFFECTS
 
 
 def test_hunger_zero_penalty():

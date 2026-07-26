@@ -1,7 +1,8 @@
 import logging
 import random
-from datetime import datetime
+
 from sqlalchemy import text
+
 from database.base import get_db
 from domain.events import EventType, Importance
 
@@ -222,6 +223,7 @@ class EventService:
         if hit:
             damage = random.randint(10, 25)
             from sqlalchemy import update
+
             from database.models.user import UserModel
             async for db in get_db():
                 if user["hp"] <= damage:
@@ -265,6 +267,7 @@ class EventService:
         rep_loss = action.get("rep_loss", 0)
 
         from sqlalchemy import update
+
         from database.models.user import UserModel
         async for db in get_db():
             new_gold = max(0, user["gold"] + gold)

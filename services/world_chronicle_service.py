@@ -1,7 +1,6 @@
 import logging
-import json
+
 from sqlalchemy import select, text
-from datetime import datetime
 
 from database.base import get_db
 from database.models.chronicle import ChronicleEventModel

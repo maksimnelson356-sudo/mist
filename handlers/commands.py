@@ -1,10 +1,11 @@
-import json
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram import F, Router
 from aiogram.filters import Command
-from services.container import services
-from services.achievement_service import ACHIEVEMENT_DEFS, CATEGORY_ICONS, CATEGORY_NAMES
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+
+from handlers.game._shared import nav_kb
 from handlers.whisper import _get_whisper_for_user
+from services.achievement_service import ACHIEVEMENT_DEFS, CATEGORY_ICONS, CATEGORY_NAMES
+from services.container import services
 
 router = Router()
 

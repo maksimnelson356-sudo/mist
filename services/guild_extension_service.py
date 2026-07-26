@@ -1,9 +1,10 @@
 import logging
 import random
-from datetime import datetime
-from sqlalchemy import select, update, delete
+
+from sqlalchemy import select, update
+
 from database.base import get_db
-from database.models.guild import GuildStorageModel, GuildQuestModel, GuildModel, GuildMemberModel
+from database.models.guild import GuildMemberModel, GuildModel, GuildQuestModel, GuildStorageModel
 from database.models.user import UserModel
 from domain.events import EventType, Importance
 

@@ -1,6 +1,6 @@
+import contextvars
 import logging
 import uuid
-import contextvars
 
 correlation_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("correlation_id", default="")
 

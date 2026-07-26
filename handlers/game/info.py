@@ -1,8 +1,9 @@
 from aiogram import F
-from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from aiogram.types import CallbackQuery, Message
 
 from services.container import services
+
 from . import _shared as G
 
 router = G.router
@@ -85,7 +86,7 @@ async def cmd_trade(message: Message):
         items_offered, gold, [], 0
     )
 
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🤝 Трейдинг", callback_data="trade_menu")],
     ])

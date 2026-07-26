@@ -1,6 +1,8 @@
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from services.player_service import PlayerService
 from services.profile_service import ProfileService
 from services.reputation_service import ReputationService

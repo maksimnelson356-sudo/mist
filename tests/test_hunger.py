@@ -1,6 +1,8 @@
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from services.player_service import PlayerService
 
 

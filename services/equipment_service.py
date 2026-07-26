@@ -1,10 +1,8 @@
-from sqlalchemy import select, delete
+from sqlalchemy import select
 
 from database.base import get_db
 from database.models.inventory import InventoryModel, UserEquipmentModel
 from database.models.item import ItemTemplateModel
-from database.models.user import UserModel
-from domain.events import EventType, Importance
 
 
 class EquipmentService:

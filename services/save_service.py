@@ -1,12 +1,10 @@
-import json
 from datetime import datetime
 
 from sqlalchemy import select
 
 from database.base import get_db
-from database.models.user import UserModel
 from database.models.chronicle import ChronicleEventModel
-from domain.events import EventType, Importance
+from database.models.user import UserModel
 
 
 class SaveService:

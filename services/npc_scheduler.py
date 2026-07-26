@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from sqlalchemy import select, update
 
 from database.base import get_db

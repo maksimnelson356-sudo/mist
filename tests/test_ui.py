@@ -1,6 +1,18 @@
 import pytest
-from ui.formatter import hp_bar, xp_bar, gold_fmt, location_fmt, level_fmt, reputation_fmt, role_icon, rarity_icon, weather_icon, time_icon
-from ui.keyboards import main_menu_kb, back_kb, confirm_kb, list_kb, paginated_kb
+
+from ui.formatter import (
+    gold_fmt,
+    hp_bar,
+    level_fmt,
+    location_fmt,
+    rarity_icon,
+    reputation_fmt,
+    role_icon,
+    time_icon,
+    weather_icon,
+    xp_bar,
+)
+from ui.keyboards import back_kb, confirm_kb, list_kb, main_menu_kb, paginated_kb
 
 
 def test_hp_bar_full():

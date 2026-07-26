@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timezone
-from sqlalchemy import select, update
+from datetime import UTC, datetime
+
+from sqlalchemy import select
 
 from database.base import get_db
 from database.models.daily_reward import DailyRewardModel
@@ -8,7 +9,7 @@ from database.models.user import UserModel
 
 logger = logging.getLogger("MIST.daily_reward")
 
-EPOCH = datetime(2024, 1, 1, tzinfo=timezone.utc)
+EPOCH = datetime(2024, 1, 1, tzinfo=UTC)
 
 STREAK_REWARDS = {
     1: {"gold": 10, "xp": 5, "message": "🎁 День 1: 10🪙 + 5XP"},
@@ -29,7 +30,7 @@ class DailyRewardService:
         self.inventory = inventory_service
 
     async def claim(self, user_id: int) -> dict:
-        today = (datetime.now(timezone.utc) - EPOCH).days + 1
+        today = (datetime.now(UTC) - EPOCH).days + 1
 
         async for db in get_db():
             stmt = select(DailyRewardModel).where(DailyRewardModel.user_id == user_id)
@@ -97,7 +98,7 @@ class DailyRewardService:
             result = await db.execute(stmt)
             record = result.scalar_one_or_none()
 
-            today = (datetime.now(timezone.utc) - EPOCH).days + 1
+            today = (datetime.now(UTC) - EPOCH).days + 1
 
             claimed_today = record.last_claim_day == today if record else False
             streak = record.streak if record else 0

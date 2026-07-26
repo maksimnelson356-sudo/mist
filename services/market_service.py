@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, timedelta
+
 from sqlalchemy import text
+
 from database.base import get_db
 
 logger = logging.getLogger("MIST.market")

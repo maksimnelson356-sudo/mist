@@ -1,5 +1,6 @@
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+
 from services.container import services
 from services.world_boss_service import WORLD_BOSS_DEFS
 
@@ -75,7 +76,7 @@ async def cb_raid_join(callback: CallbackQuery):
         text = f"❌ {result['message']}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"⚔️ Атаковать", callback_data=f"raid_attack:{boss_id}")],
+        [InlineKeyboardButton(text="⚔️ Атаковать", callback_data=f"raid_attack:{boss_id}")],
         [InlineKeyboardButton(text="◀️ Назад", callback_data="raid_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)

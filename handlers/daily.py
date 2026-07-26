@@ -1,6 +1,8 @@
-from aiogram import Router, F
+from datetime import UTC, datetime
+
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-from datetime import datetime, timezone
+
 from services.container import services
 
 router = Router()
@@ -62,10 +64,10 @@ async def cb_daily_quests(callback: CallbackQuery):
     user_id = callback.from_user.id
     quests = await services.daily.get_or_create(user_id)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     date_str = f"{now.day} {MONTHS_RU[now.month - 1]} {now.year}"
 
-    lines = [f"📅 <b>Ежедневные задания</b>", f"🗓 {date_str}", ""]
+    lines = ["📅 <b>Ежедневные задания</b>", f"🗓 {date_str}", ""]
 
     completed_count = 0
     for q in quests:

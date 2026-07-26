@@ -1,4 +1,5 @@
 import aiosqlite
+
 from config import DB_PATH
 
 _db: aiosqlite.Connection = None
@@ -16,7 +17,7 @@ async def get_db() -> aiosqlite.Connection:
 
 async def init_db():
     db = await get_db()
-    with open("schema.sql", "r", encoding="utf-8") as f:
+    with open("schema.sql", encoding="utf-8") as f:
         await db.executescript(f.read())
     await db.commit()
 

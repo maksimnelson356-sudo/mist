@@ -1,9 +1,8 @@
-from sqlalchemy import select, update
+from sqlalchemy import update
 
 from database.base import get_db
 from database.models.user import UserModel
 from domain.events import EventType, Importance
-
 
 REPUTATION_LEVELS = [
     (-100, -51, "Враг", "NPC атакуют первыми"),

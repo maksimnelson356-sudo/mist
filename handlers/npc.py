@@ -1,6 +1,6 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import F, Router
 from aiogram.filters import Command
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from services.container import services
 
@@ -100,7 +100,7 @@ async def cb_npc_talk(callback: CallbackQuery):
         from services.npc_life_engine import get_npc_location_bonuses
         loc_bonuses = await get_npc_location_bonuses(user["current_location"])
         if loc_bonuses["heal_amount"] > 0:
-            text += f"\n\n💚 <i>Целитель рядом восстанавливает силы местных жителей.</i>"
+            text += "\n\n💚 <i>Целитель рядом восстанавливает силы местных жителей.</i>"
     except Exception:
         pass
 

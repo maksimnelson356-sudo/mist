@@ -1,7 +1,9 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import select, update
+from datetime import UTC, datetime
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database.models.chronicle import ChronicleEventModel
 
 
@@ -18,7 +20,7 @@ class ChronicleRepository:
             description=event_data.get("description"),
             player_id=event_data.get("player_id"),
             region_id=event_data.get("region_id"),
-            created_at=event_data.get("created_at", datetime.now(timezone.utc)),
+            created_at=event_data.get("created_at", datetime.now(UTC)),
             expires_at=event_data.get("expires_at"),
             metadata_=event_data.get("metadata"),
         )
@@ -69,7 +71,7 @@ class ChronicleRepository:
 
     @staticmethod
     async def cleanup_expired(session: AsyncSession) -> int:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stmt = (
             select(ChronicleEventModel)
             .where(ChronicleEventModel.expires_at.isnot(None))

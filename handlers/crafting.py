@@ -1,6 +1,8 @@
 import json
-from aiogram import Router, F
+
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+
 from services.container import services
 
 router = Router()
@@ -29,7 +31,7 @@ async def cb_crafting_menu(callback: CallbackQuery):
         await callback.message.edit_text(text, reply_markup=kb)
         return
 
-    text = f"⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n"
+    text = "⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n"
     buttons = []
     for r in recipes:
         ingredients = json.loads(r["ingredients"]) if isinstance(r["ingredients"], str) else r["ingredients"]

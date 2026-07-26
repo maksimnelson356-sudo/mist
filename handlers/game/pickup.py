@@ -1,7 +1,8 @@
 from aiogram import F
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, InlineKeyboardButton
 
 from services.container import services
+
 from . import _shared as G
 
 router = G.router

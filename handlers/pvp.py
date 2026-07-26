@@ -1,6 +1,6 @@
-import json
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+
 from services.container import services
 
 router = Router()

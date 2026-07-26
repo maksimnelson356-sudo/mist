@@ -1,8 +1,8 @@
 import json
 import logging
 import random
+
 from sqlalchemy import select, text
-from datetime import datetime
 
 from database.base import get_db
 from database.models.npc import NPCModel

@@ -1,6 +1,4 @@
 import logging
-import random
-from services.npc_service import NPC_TYPES
 
 logger = logging.getLogger("MIST.dialogue")
 
@@ -236,6 +234,7 @@ class DialogueService:
             user = await self.player.get(user_id)
             if user and user["gold"] >= cost_gold:
                 from sqlalchemy import update
+
                 from database.base import get_db
                 from database.models.user import UserModel
                 async for db in get_db():
@@ -262,11 +261,12 @@ class DialogueService:
         if user_id:
             user = await self.player.get(user_id)
             reputation = user.get("reputation", 0) if user else 0
+            user_gold = user.get("gold", 0) if user else 0
             filtered_options = []
             for opt in options:
                 req_rep = opt.get("req_rep", -999)
                 req_gold = opt.get("req_gold", 0)
-                if reputation >= req_rep and gold >= req_gold:
+                if reputation >= req_rep and user_gold >= req_gold:
                     filtered_options.append(opt)
             result["options"] = filtered_options
 

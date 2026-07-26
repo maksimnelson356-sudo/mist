@@ -1,5 +1,6 @@
 import logging
-from sqlalchemy import select, update, text
+
+from sqlalchemy import select, text, update
 
 from database.base import get_db
 from database.models.artifact import ArtifactModel
@@ -202,17 +203,17 @@ class ArtifactService:
 
         additions = []
         if times_used == 1:
-            additions.append(f"Впервые использован.")
+            additions.append("Впервые использован.")
         if kills == 1:
-            additions.append(f"Впервые пролита кровь.")
+            additions.append("Впервые пролита кровь.")
         if kills >= 10:
             additions.append(f"Клинок жаждет крови. Убийств: {kills}.")
         if saves >= 5:
             additions.append(f"Щит спас {saves} жизней.")
         if times_used >= 20:
-            additions.append(f"Артефакт начинает менять владельца.")
+            additions.append("Артефакт начинает менять владельца.")
         if times_used >= 50:
-            additions.append(f"Артефакт стал частью владельца.")
+            additions.append("Артефакт стал частью владельца.")
 
         if additions:
             return base_lore + " " + " ".join(additions)

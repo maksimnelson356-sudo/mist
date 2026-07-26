@@ -1,11 +1,11 @@
 import json
 from datetime import datetime
+
 from sqlalchemy import select, update
 
 from database.base import get_db
 from database.models.quest import QuestModel, UserQuestModel
 from domain.events import EventType, Importance
-
 
 QUEST_TYPES = {
     "kill": {"name": "Убить", "icon": "⚔️"},

@@ -6,16 +6,14 @@ from collections import deque
 from sqlalchemy import select, update
 
 from database.base import get_db
-from database.models.user import UserModel
-from database.models.location import LocationModel
 from database.models.creature import CreatureModel
+from database.models.location import LocationModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 logger = logging.getLogger("MIST.movement")
-from database.models.item import GroundItemModel
 from database.models.inventory import InventoryModel
-from database.models.poi import POIModel
-from domain.events import EventType, Importance
+from database.models.item import GroundItemModel
 
 
 class MovementService:
@@ -50,10 +48,7 @@ class MovementService:
                 return {"success": False, "message": "Эта область не существует... или ещё не открыта."}
 
             if loc.is_secret:
-                if loc.discovered_by and loc.discovered_by != user_id:
-                    if user["karma"] < (loc.required_karma or 0):
-                        return {"success": False, "message": "Туман не пускает тебя дальше..."}
-                elif not loc.discovered_by:
+                if loc.discovered_by and loc.discovered_by != user_id or not loc.discovered_by:
                     if user["karma"] < (loc.required_karma or 0):
                         return {"success": False, "message": "Туман не пускает тебя дальше..."}
 

@@ -1,5 +1,6 @@
 import pytest
-from services.admin_service import is_admin, ADMIN_IDS
+
+from services.admin_service import ADMIN_IDS, is_admin
 
 
 def test_admin_ids_empty():

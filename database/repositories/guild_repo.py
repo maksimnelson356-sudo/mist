@@ -1,7 +1,7 @@
-from datetime import datetime
-from sqlalchemy import select, update, delete, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models.guild import GuildModel, GuildMemberModel
+
+from database.models.guild import GuildMemberModel, GuildModel
 
 
 class GuildRepository:

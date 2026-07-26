@@ -1,11 +1,10 @@
-import json
 from sqlalchemy import select
 
 from database.base import get_db
 from database.models.continent import ContinentModel
-from database.models.region import RegionModel
 from database.models.location import LocationModel
 from database.models.poi import POIModel
+from database.models.region import RegionModel
 
 
 class WorldGenerator:

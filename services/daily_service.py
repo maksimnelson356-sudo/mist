@@ -9,7 +9,6 @@ from database.models.daily import DailyQuestModel
 from database.models.user import UserModel
 from domain.events import EventType, Importance
 
-
 DAILY_QUEST_POOL = [
     {"quest_id": "daily_kill_3", "name": "Охота дня", "description": "Убей 3 существ", "objective": {"type": "kill_count", "target": 3}, "reward_xp": 50, "reward_gold": 20},
     {"quest_id": "daily_collect_5", "name": "Сбор дня", "description": "Подбери 5 предметов", "objective": {"type": "pickup_count", "target": 5}, "reward_xp": 30, "reward_gold": 15},

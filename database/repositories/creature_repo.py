@@ -1,8 +1,10 @@
 import json
 import random
 from datetime import datetime
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from database.models.creature import CreatureModel
 
 

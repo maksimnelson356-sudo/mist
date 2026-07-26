@@ -4,11 +4,11 @@ import logging
 from sqlalchemy import select, update
 
 from database.base import get_db
-from database.models.shop import ShopItemModel
-from database.models.item import ItemTemplateModel
-from database.models.user import UserModel
 from database.models.inventory import InventoryModel
+from database.models.item import ItemTemplateModel
 from database.models.location import LocationModel
+from database.models.shop import ShopItemModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 logger = logging.getLogger("MIST.shop")
@@ -170,7 +170,7 @@ class ShopService:
 
             npc_mod = 1.0
             try:
-                from services.npc_life_engine import get_trade_multiplier, get_npc_location_bonuses
+                from services.npc_life_engine import get_npc_location_bonuses, get_trade_multiplier
                 npc_mod = await get_trade_multiplier(user_id, shop_id)
                 loc_bonuses = await get_npc_location_bonuses(shop_id)
                 if loc_bonuses["trade_bonus"] > 0:

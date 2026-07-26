@@ -1,16 +1,18 @@
 import json
+import logging
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, update, delete, text
+logger = logging.getLogger(__name__)
+
+from sqlalchemy import delete, select, update
 
 from database.base import get_db
-from database.models.user import UserModel
+from database.models.combat import CombatLogModel
 from database.models.creature import CreatureModel
 from database.models.inventory import InventoryModel, UserEquipmentModel, UserStatusEffectModel
-from database.models.item import ItemTemplateModel
-from database.models.combat import CombatLogModel
 from database.models.location import LocationModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 WEATHER_COMBAT_EFFECTS = {
@@ -585,6 +587,6 @@ class CombatService:
         uid_str = str(user_id)
         if uid_str not in memory:
             memory[uid_str] = []
-        memory[uid_str].append({"action": action, "time": datetime.now(timezone.utc).isoformat()})
+        memory[uid_str].append({"action": action, "time": datetime.now(UTC).isoformat()})
         row.memory_with_users = json.dumps(memory)
         await db.commit()

@@ -1,19 +1,17 @@
-import json
 
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 
 from database.base import get_db
 from database.models.achievement import AchievementModel, UserAchievementModel
-from database.models.user import UserModel
 from database.models.combat import CombatLogModel
-from database.models.location import LocationModel
-from database.models.quest import UserQuestModel
 from database.models.crafting import UserCraftingModel
-from database.models.inventory import UserEquipmentModel
 from database.models.guild import GuildMemberModel
+from database.models.inventory import UserEquipmentModel
+from database.models.location import LocationModel
 from database.models.npc_memory import NPCMemoryModel
+from database.models.quest import UserQuestModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
-
 
 ACHIEVEMENT_DEFS = [
     {"achievement_id": "first_blood", "name": "Первая кровь", "description": "Убей первое существо", "icon": "🩸", "category": "combat", "requirement": {"type": "kill_count", "target": 1}, "reward_xp": 25, "reward_gold": 0},

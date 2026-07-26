@@ -2,7 +2,6 @@ from database.base import get_db
 from database.repositories.npc_memory_repo import NPCMemoryRepository
 from domain.events import EventType, Importance
 
-
 ACTION_DELTAS = {
     "talked": 1,
     "traded": 2,

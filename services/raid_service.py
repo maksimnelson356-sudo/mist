@@ -1,12 +1,13 @@
 import logging
 import random
 from datetime import datetime
-from sqlalchemy import select, update, text
+
+from sqlalchemy import select, update
 
 from database.base import get_db
 from database.models.world_boss import WorldBossModel
-from services.world_boss_service import WORLD_BOSS_DEFS
 from domain.events import EventType, Importance
+from services.world_boss_service import WORLD_BOSS_DEFS
 
 logger = logging.getLogger("MIST.raid")
 

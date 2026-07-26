@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models.combat import CombatLogModel, BossSpawnModel
+
+from database.models.combat import BossSpawnModel, CombatLogModel
 
 
 class CombatRepository:

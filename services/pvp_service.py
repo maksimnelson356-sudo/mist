@@ -1,12 +1,11 @@
 import json
 import random
 
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 
 from database.base import get_db
-from database.models.user import UserModel
 from database.models.combat import CombatLogModel
-from database.models.inventory import InventoryModel, UserEquipmentModel
+from database.models.user import UserModel
 from domain.events import EventType, Importance
 
 

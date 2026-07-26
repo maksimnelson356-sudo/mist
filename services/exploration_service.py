@@ -63,8 +63,8 @@ class ExplorationService:
         damage_message = ""
         if risk_chance > 0 and random.random() < risk_chance:
             damage = random.randint(5, 15)
-            from services.container import services
             from sqlalchemy import update as sa_update
+
             from database.models.user import UserModel
             async for db in get_db():
                 await db.execute(

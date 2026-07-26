@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from database.base import get_db
 from database.models.chronicle import ChronicleEventModel
@@ -32,7 +32,7 @@ class ChronicleService:
                 description=description,
                 player_id=player_id,
                 region_id=region_id,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 expires_at=expires_at,
                 metadata_=metadata or {},
             )
@@ -93,7 +93,7 @@ class ChronicleService:
         return []
 
     async def cleanup_expired(self) -> int:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         deleted = 0
         async for db in get_db():
             stmt = select(ChronicleEventModel).where(

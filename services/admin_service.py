@@ -17,9 +17,10 @@ class AdminService:
     async def set_level(self, user_id: int, level: int) -> dict:
         if level < 1 or level > 100:
             return {"success": False, "message": "Уровень должен быть 1-100."}
+        from sqlalchemy import update
+
         from database.base import get_db
         from database.models.user import UserModel
-        from sqlalchemy import update
         async for db in get_db():
             await db.execute(
                 update(UserModel).where(UserModel.user_id == user_id).values(level=level)
@@ -31,9 +32,10 @@ class AdminService:
     async def set_gold(self, user_id: int, amount: int) -> dict:
         if amount < 0:
             return {"success": False, "message": "Золото не может быть отрицательным."}
+        from sqlalchemy import update
+
         from database.base import get_db
         from database.models.user import UserModel
-        from sqlalchemy import update
         async for db in get_db():
             await db.execute(
                 update(UserModel).where(UserModel.user_id == user_id).values(gold=amount)
@@ -43,9 +45,10 @@ class AdminService:
         return {"success": False, "message": "Ошибка БД."}
 
     async def revive_player(self, user_id: int) -> dict:
+        from sqlalchemy import update
+
         from database.base import get_db
         from database.models.user import UserModel
-        from sqlalchemy import update
         async for db in get_db():
             user = await self.player.get(user_id)
             if not user:
@@ -60,9 +63,10 @@ class AdminService:
         return {"success": False, "message": "Ошибка БД."}
 
     async def teleport(self, user_id: int, location_id: str) -> dict:
+        from sqlalchemy import update
+
         from database.base import get_db
         from database.models.user import UserModel
-        from sqlalchemy import update
         async for db in get_db():
             await db.execute(
                 update(UserModel).where(UserModel.user_id == user_id).values(current_location=location_id)

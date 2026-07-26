@@ -1,13 +1,15 @@
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from sqlalchemy import text
+
 from database.base import get_db
-from database.models.world_state import WorldStateModel
 from database.models.world_event_record import WorldEventRecordModel
-from services.world_event_defs import WORLD_EVENT_DEFS, get_random_events
+from database.models.world_state import WorldStateModel
 from domain.events import EventType, Importance
+from services.world_event_defs import WORLD_EVENT_DEFS, get_random_events
 
 logger = logging.getLogger("MIST.world_engine")
 
@@ -110,7 +112,7 @@ class WorldEngine:
                     "danger_level": state["danger_level"],
                     "total_population": state["total_population"],
                     "events_count": state["events_count"],
-                    "last_tick_at": datetime.now(timezone.utc),
+                    "last_tick_at": datetime.now(UTC),
                 },
             )
             await db.commit()
@@ -134,7 +136,7 @@ class WorldEngine:
                 magic_level=20,
                 danger_level=30,
                 events_count=0,
-                last_tick_at=datetime.now(timezone.utc),
+                last_tick_at=datetime.now(UTC),
             ))
             await db.commit()
             logger.info("Создано начальное состояние мира: День 1, 08:00, Весна")

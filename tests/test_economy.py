@@ -1,5 +1,6 @@
 import pytest
-from services.economy_service import EconomyService, VALID_CURRENCIES
+
+from services.economy_service import VALID_CURRENCIES, EconomyService
 
 
 class MockChronicle:

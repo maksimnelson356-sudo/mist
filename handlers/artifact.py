@@ -1,7 +1,7 @@
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+
 from services.container import services
-from services.artifact_service import ARTIFACT_DEFS
 
 router = Router()
 

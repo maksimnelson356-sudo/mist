@@ -1,6 +1,7 @@
 import uuid
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 
 def test_continent_model_fields():

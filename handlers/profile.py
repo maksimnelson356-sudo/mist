@@ -1,9 +1,10 @@
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+
 from services.container import services
 from services.home_service import HOME_MOODS
-from services.weather_system import WEATHER_STATES
 from services.time_system import TIME_PERIODS
+from services.weather_system import WEATHER_STATES
 
 router = Router()
 
@@ -20,7 +21,6 @@ async def cb_profile(callback: CallbackQuery):
     game_hour = world_state["game_hour"] if world_state else 8
     season = world_state["season"] if world_state else "spring"
 
-    from services.time_system import TIME_PERIODS
     period = "morning"
     for p, info in TIME_PERIODS.items():
         start, end = info["hours"]
@@ -37,8 +37,9 @@ async def cb_profile(callback: CallbackQuery):
     loc_id = user["current_location"]
     loc_weather = "clear"
     try:
-        from database.base import get_db as _get_db
         from sqlalchemy import text
+
+        from database.base import get_db as _get_db
         async for _db in _get_db():
             r = await _db.execute(text("SELECT current_weather FROM locations WHERE id = :lid"), {"lid": loc_id})
             row = r.mappings().first()

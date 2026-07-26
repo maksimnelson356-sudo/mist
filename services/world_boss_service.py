@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import random
-from datetime import datetime, timedelta, timezone
-from sqlalchemy import select, update, text
+from datetime import UTC, datetime
+
+from sqlalchemy import select, text, update
 
 from database.base import get_db
 from database.models.world_boss import WorldBossModel
@@ -164,7 +165,7 @@ class WorldBossService:
         await db.execute(
             update(WorldBossModel)
             .where(WorldBossModel.id == boss.id)
-            .values(is_alive=False, killed_at=datetime.now(timezone.utc), killed_by=killer_id, phase="dead")
+            .values(is_alive=False, killed_at=datetime.now(UTC), killed_by=killer_id, phase="dead")
         )
 
         await self.chronicle.publish(
@@ -190,7 +191,7 @@ class WorldBossService:
 
             for boss in dead_bosses:
                 if boss.killed_at:
-                    hours_since_death = (datetime.now(timezone.utc) - boss.killed_at).total_seconds() / 3600
+                    hours_since_death = (datetime.now(UTC) - boss.killed_at).total_seconds() / 3600
                     if hours_since_death >= boss.respawn_hours:
                         await db.execute(
                             update(WorldBossModel)

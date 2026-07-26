@@ -1,6 +1,6 @@
 import json
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 
 from database.base import get_db
 from database.models.inventory import InventoryModel

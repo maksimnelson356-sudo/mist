@@ -1,17 +1,48 @@
 import asyncio
 import logging
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramBadRequest
 
 from config import BOT_TOKEN
-from database.base import init_db, close_db
+from database.base import close_db, init_db
 from handlers import (
-    game, whisper, quests, shop, pvp, crafting, guild, trade, equipment,
-    achievements, daily, commands, admin, npc, exploration, home, artifact, boss,
-    war, profile, world_chronicle, class_handler, dialogue, faction, raid, event,
-    market, leaderboard, guild_ext, npc_trade, npc_quests, catalog, balance,
-    territory, lang,
+    achievements,
+    admin,
+    artifact,
+    balance,
+    boss,
+    catalog,
+    class_handler,
+    commands,
+    crafting,
+    daily,
+    dialogue,
+    equipment,
+    event,
+    exploration,
+    faction,
+    game,
+    guild,
+    guild_ext,
+    home,
+    lang,
+    leaderboard,
+    market,
+    npc,
+    npc_quests,
+    npc_trade,
+    profile,
+    pvp,
+    quests,
+    raid,
+    shop,
+    territory,
+    trade,
+    war,
+    whisper,
+    world_chronicle,
 )
 from middleware import CallbackAnswerMiddleware
 from services.container import services

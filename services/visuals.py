@@ -1,5 +1,5 @@
-import os
 from pathlib import Path
+
 from aiogram.types import InputFile
 
 # =============================================================

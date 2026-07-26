@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """MIST build script."""
 
-import os
-import sys
 import subprocess
+import sys
 
 
 def run(cmd: str) -> int:

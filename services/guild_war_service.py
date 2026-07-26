@@ -1,10 +1,11 @@
 import logging
 from datetime import datetime
-from sqlalchemy import select, update, text
+
+from sqlalchemy import select, text, update
 
 from database.base import get_db
+from database.models.guild import GuildModel
 from database.models.guild_war import GuildWarModel
-from database.models.guild import GuildModel, GuildMemberModel
 from database.models.location import LocationModel
 from domain.events import EventType, Importance
 
@@ -55,7 +56,7 @@ class GuildWarService:
                 importance=Importance.RARE,
             )
 
-            return {"success": True, "message": f"⚔️ Война объявлена!", "war_id": war.id}
+            return {"success": True, "message": "⚔️ Война объявлена!", "war_id": war.id}
 
     async def resolve_battle(self, war_id: str, winner: str) -> dict:
         async for db in get_db():

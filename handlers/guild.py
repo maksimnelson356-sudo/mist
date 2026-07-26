@@ -1,13 +1,13 @@
-import json
-from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message, InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.filters import Command, CommandStart
+from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from services.container import services
-from sqlalchemy import select, func
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from sqlalchemy import func, select
+
 from database.base import get_db
 from database.models.guild import GuildMemberModel
+from services.container import services
 
 router = Router()
 

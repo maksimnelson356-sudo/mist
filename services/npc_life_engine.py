@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone
-from sqlalchemy import select, update, text
+from datetime import UTC, datetime
+
+from sqlalchemy import select, text, update
 
 from database.base import get_db
 from database.models.npc import NPCModel
@@ -241,7 +242,7 @@ class NPCLifeEngine:
                         events = rel.events or []
                         if abs(delta) > 2:
                             events.append({
-                                "day": datetime.now(timezone.utc).isoformat(),
+                                "day": datetime.now(UTC).isoformat(),
                                 "delta": delta,
                                 "reason": "встреча в локации",
                             })
@@ -251,14 +252,14 @@ class NPCLifeEngine:
                         await db.execute(
                             update(NPCRelationshipModel)
                             .where(NPCRelationshipModel.id == rel.id)
-                            .values(value=new_value, events=events, last_interaction_at=datetime.now(timezone.utc))
+                            .values(value=new_value, events=events, last_interaction_at=datetime.now(UTC))
                         )
                     else:
                         new_rel = NPCRelationshipModel(
                             npc_a_id=npc_a["npc_id"],
                             npc_b_id=npc_b["npc_id"],
                             value=delta,
-                            events=[{"day": datetime.now(timezone.utc).isoformat(), "delta": delta, "reason": "первая встреча"}],
+                            events=[{"day": datetime.now(UTC).isoformat(), "delta": delta, "reason": "первая встреча"}],
                         )
                         db.add(new_rel)
 

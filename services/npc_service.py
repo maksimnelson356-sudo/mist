@@ -1,10 +1,8 @@
 from sqlalchemy import select
-from sqlalchemy.sql import func
 
 from database.base import get_db
 from database.models.npc import NPCModel
 from domain.events import EventType, Importance
-
 
 NPC_TYPES = {
     "merchant": {"name": "Торговец", "icon": "🛒", "can_trade": True},
@@ -70,6 +68,7 @@ class NPCService:
                 world_context = f"\n<i>Сейчас {season_names.get(season, season)}.</i>"
 
                 from sqlalchemy import text
+
                 from database.base import get_db as _get_db
                 async for _db in _get_db():
                     r = await _db.execute(text("SELECT COUNT(*) as cnt FROM world_event_records WHERE is_active = 1"))

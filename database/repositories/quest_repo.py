@@ -1,10 +1,9 @@
-import json
 from datetime import datetime
-from sqlalchemy import select, update, func
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models.quest import (
-    QuestModel, UserQuestModel, WorldEventModel, LegendModel
-)
+
+from database.models.quest import LegendModel, QuestModel, UserQuestModel
 
 
 class QuestRepository:
@@ -72,7 +71,6 @@ class QuestRepository:
 
     @staticmethod
     async def accept_quest(session: AsyncSession, user_id: int, quest_id: str, progress_json: str):
-        import json
         uq = UserQuestModel(
             user_id=user_id,
             quest_id=quest_id,

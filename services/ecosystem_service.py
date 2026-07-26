@@ -1,10 +1,11 @@
 import logging
 import random
-from sqlalchemy import select, update, text
+
+from sqlalchemy import text, update
 
 from database.base import get_db
-from database.models.npc import NPCModel
 from database.models.creature import CreatureModel
+from database.models.npc import NPCModel
 
 logger = logging.getLogger("MIST.ecosystem")
 
