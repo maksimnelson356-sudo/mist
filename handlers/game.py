@@ -342,6 +342,22 @@ async def cb_look(callback: CallbackQuery):
     if danger > 0:
         buttons.append([InlineKeyboardButton(text="🔧 Восстановить локацию", callback_data=f"restore_loc:{user['current_location']}")])
 
+    try:
+        memories = await services.world_memory.get_memories_at_location(user["current_location"], limit=3)
+        if memories:
+            mem_icons = {"battle": "⚔️", "discovery": "✨", "death": "💀", "construction": "🏗",
+                         "trade": "🤝", "quest_complete": "📜", "npc_death": "☠️", "guild_action": "🏰",
+                         "world_event": "🌍", "artifact_found": "💎", "player_death": "🩸", "home_built": "🏠"}
+            text += "\n\n🌫 <b>Воспоминания места:</b>\n"
+            for m in memories:
+                icon = mem_icons.get(m["type"], "💭")
+                desc = m.get("description", "") or m["title"]
+                if len(desc) > 60:
+                    desc = desc[:57] + "..."
+                text += f"  {icon} <i>{desc}</i>\n"
+    except Exception:
+        pass
+
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 

@@ -33,6 +33,16 @@ async def _get_whisper_for_user(user_id: int) -> str:
     user = await services.player.get_or_create(user_id)
     days = user.get("days_in_mist", 0)
     karma = user.get("karma", 0)
+    loc_id = user.get("current_location", "fishing_village")
+
+    try:
+        memories = await services.world_memory.get_memories_at_location(loc_id, limit=5)
+        if memories:
+            m = random.choice(memories)
+            desc = m.get("description", "") or m["title"]
+            return f"Туман шепчет о прошлом этого места...\n\n<i>«{desc}»</i>"
+    except Exception:
+        pass
 
     if days > 30:
         base = [w for w in WHISPERS if any(k in w for k in ["стар", "помнишь", "время"])]
