@@ -115,6 +115,9 @@ class ServiceContainer:
             event_quest=self.event_quest,
         )
 
+        self.daily_event.world_engine = self.world_engine
+        self.seasonal_event.world_engine = self.world_engine
+
         self.user = self.player
 
 

@@ -260,7 +260,24 @@ class CombatService:
                     from services.npc_life_engine import get_xp_multiplier
                     xp_mult = await get_xp_multiplier(user_id)
                     if xp_mult != 1.0:
-                        result_log["xp_gained"] = int(creature["xp_reward"] * xp_mult)
+                        result_log["xp_gained"] = int(result_log["xp_gained"] * xp_mult)
+                except Exception:
+                    pass
+
+                try:
+                    from services.container import services
+                    if services.daily_event:
+                        bonuses = await services.daily_event.get_active_daily_bonuses()
+                        if "xp_mult" in bonuses:
+                            result_log["xp_gained"] = int(result_log["xp_gained"] * bonuses["xp_mult"])
+                        if "gold_mult" in bonuses:
+                            gold_reward = int(gold_reward * bonuses["gold_mult"])
+                    if services.seasonal_event:
+                        rewards = await services.seasonal_event.get_active_seasonal_rewards()
+                        if "xp_bonus" in rewards:
+                            result_log["xp_gained"] = int(result_log["xp_gained"] * rewards["xp_bonus"])
+                        if "gold_bonus" in rewards:
+                            gold_reward = int(gold_reward * rewards["gold_bonus"])
                 except Exception:
                     pass
 

@@ -93,8 +93,9 @@ SEASONAL_EVENTS = {
 
 class SeasonalEventService:
 
-    def __init__(self, chronicle):
+    def __init__(self, chronicle, world_engine=None):
         self.chronicle = chronicle
+        self.world_engine = world_engine
 
     async def trigger_season_event(self, season: str, current_day: int):
         events = SEASONAL_EVENTS.get(season, [])
@@ -112,12 +113,15 @@ class SeasonalEventService:
                 logger.debug(f"Сезонный ивент уже активен: {event['name']}")
                 return
 
+            loc_result = await db.execute(text("SELECT id FROM locations ORDER BY RANDOM() LIMIT 5"))
+            target_locs = [row[0] for row in loc_result.all()]
+
             record = WorldEventRecordModel(
                 event_type=event["event_type"],
                 name=event["name"],
                 description=event["description"],
                 region_id=None,
-                location_id=None,
+                location_id=target_locs[0] if target_locs else None,
                 start_day=current_day,
                 end_day=current_day + event["duration_days"] if event["duration_days"] > 0 else None,
                 is_active=True,
@@ -127,6 +131,10 @@ class SeasonalEventService:
             db.add(record)
             await db.commit()
 
+            if target_locs and self.world_engine:
+                for loc_id in target_locs:
+                    await self.world_engine._apply_event_effects(loc_id, event.get("effects", {}), db)
+
             icon = event.get("icon", "")
             await self.chronicle.publish(
                 EventType.WORLD_EVENT,
@@ -134,6 +142,28 @@ class SeasonalEventService:
                 importance=Importance.NOTABLE,
             )
             logger.info(f"Сезонный ивент: {event['name']} ({season})")
+
+    async def get_active_seasonal_rewards(self) -> dict:
+        rewards = {}
+        try:
+            from services.container import services
+            ws = services.world_engine.get_state()
+            current_day = ws["game_day"] if ws else 1
+
+            async for db in get_db():
+                result = await db.execute(
+                    text("SELECT event_type FROM world_event_records WHERE is_active = 1 AND end_day >= :day"),
+                    {"day": current_day},
+                )
+                active_types = [row[0] for row in result.all()]
+                for season_events in SEASONAL_EVENTS.values():
+                    for ev in season_events:
+                        if ev["event_type"] in active_types and "rewards" in ev:
+                            rewards.update(ev["rewards"])
+                break
+        except Exception as e:
+            logger.warning(f"get_active_seasonal_rewards error: {e}")
+        return rewards
 
     def get_seasonal_events(self, season: str) -> list:
         events = SEASONAL_EVENTS.get(season, [])

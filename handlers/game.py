@@ -696,17 +696,27 @@ async def cb_heal(callback: CallbackQuery):
         await callback.answer()
         return
 
-    inv = await services.inventory.get(callback.from_user.id)
+    free_heal = False
+    try:
+        bonuses = await services.daily_event.get_active_daily_bonuses()
+        free_heal = bonuses.get("free_heal", False)
+    except Exception:
+        pass
 
-    healing_items = [i for i in inv if i["item_id"] in ("healing_herb", "shadow_essence", "frozen_tear")]
-
-    if healing_items:
-        item = healing_items[0]
-        result = await services.inventory.use_item(callback.from_user.id, item["item_id"])
-        text = result["message"]
-    else:
+    if free_heal:
         result = await services.player.rest_heal(callback.from_user.id)
-        text = result["message"]
+        text = "💚 " + result["message"] + "\n\n<i>Целебные источники исцеляют бесплатно!</i>"
+    else:
+        inv = await services.inventory.get(callback.from_user.id)
+        healing_items = [i for i in inv if i["item_id"] in ("healing_herb", "shadow_essence", "frozen_tear")]
+
+        if healing_items:
+            item = healing_items[0]
+            result = await services.inventory.use_item(callback.from_user.id, item["item_id"])
+            text = result["message"]
+        else:
+            result = await services.player.rest_heal(callback.from_user.id)
+            text = result["message"]
 
     kb = post_action_kb()
     await callback.message.edit_text(text, reply_markup=kb)

@@ -160,7 +160,17 @@ class ShopService:
             except Exception:
                 pass
 
-            price = int(shop_entry.price * rep_mod * world_mod * npc_mod)
+            event_mod = 1.0
+            try:
+                from services.container import services
+                if services.daily_event:
+                    bonuses = await services.daily_event.get_active_daily_bonuses()
+                    if "shop_discount" in bonuses:
+                        event_mod = bonuses["shop_discount"]
+            except Exception:
+                pass
+
+            price = int(shop_entry.price * rep_mod * world_mod * npc_mod * event_mod)
 
             if user["gold"] < price:
                 return {"success": False, "message": f"Недостаточно золота. Нужно: {price} 🪙, есть: {user['gold']} 🪙"}
