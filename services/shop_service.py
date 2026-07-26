@@ -155,8 +155,11 @@ class ShopService:
 
             npc_mod = 1.0
             try:
-                from services.npc_life_engine import get_trade_multiplier
+                from services.npc_life_engine import get_trade_multiplier, get_npc_location_bonuses
                 npc_mod = await get_trade_multiplier(user_id, shop_id)
+                loc_bonuses = await get_npc_location_bonuses(shop_id)
+                if loc_bonuses["trade_bonus"] > 0:
+                    npc_mod *= (1.0 - loc_bonuses["trade_bonus"])
             except Exception:
                 pass
 

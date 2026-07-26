@@ -99,6 +99,30 @@ async def is_enemy_nearby(player_id: int, location_id: str) -> bool:
     except Exception:
         return False
 
+
+async def get_npc_location_bonuses(location_id: str) -> dict:
+    bonuses = {"danger_reduction": 0, "trade_bonus": 0.0, "heal_amount": 0}
+    try:
+        async for db in get_db():
+            result = await db.execute(
+                select(NPCModel).where(
+                    NPCModel.location_str == location_id,
+                    NPCModel.is_alive == True,
+                )
+            )
+            npcs = result.scalars().all()
+            for npc in npcs:
+                state = npc.state or ""
+                if state == "working:patrol_area":
+                    bonuses["danger_reduction"] += 2
+                elif state == "working:sell_goods":
+                    bonuses["trade_bonus"] += 0.05
+                elif state == "working:heal_wounded":
+                    bonuses["heal_amount"] += 10
+    except Exception:
+        pass
+    return bonuses
+
 DEATH_REASONS = [
     "старость", "болезнь", "отравление", "убийство", "стихия",
     "бандиты", "нежить", "дракон", "голод", "пропажа",

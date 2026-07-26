@@ -97,6 +97,14 @@ async def cb_npc_talk(callback: CallbackQuery):
         f"{result['message']}"
     )
 
+    try:
+        from services.npc_life_engine import get_npc_location_bonuses
+        loc_bonuses = await get_npc_location_bonuses(user["current_location"])
+        if loc_bonuses["heal_amount"] > 0:
+            text += f"\n\n💚 <i>Целитель рядом восстанавливает силы местных жителей.</i>"
+    except Exception:
+        pass
+
     buttons = []
     buttons.append([InlineKeyboardButton(text="💬 Поговорить", callback_data=f"dialogue_start:{npc_id}")])
     if result.get("can_trade"):

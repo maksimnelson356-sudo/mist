@@ -304,6 +304,13 @@ async def cb_look(callback: CallbackQuery):
     text += f"\n{w_info['icon']} <i>{w_info['name']}</i>\n"
 
     danger = loc.get("danger_level", 0) if loc else 0
+    try:
+        from services.npc_life_engine import get_npc_location_bonuses
+        npc_bonuses = await get_npc_location_bonuses(user["current_location"])
+        if npc_bonuses["danger_reduction"] > 0:
+            danger = max(0, danger - npc_bonuses["danger_reduction"])
+    except Exception:
+        pass
     if danger > 0:
         danger_icon = "🔴" if danger >= 50 else "🟡" if danger >= 20 else "🟢"
         text += f"\n{danger_icon} Опасность: {danger}\n"
