@@ -253,10 +253,47 @@ async def cb_main_menu(callback: CallbackQuery):
         user["hunger"] = new_hunger
 
     loc = await services.movement.get_location(user["current_location"])
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+
+    ws = services.world_engine.get_state()
+    if ws:
+        season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
+        season = season_names.get(ws.get("season", ""), ws.get("season", ""))
+        text += f"🌍 День {ws.get('game_day', '?')}, {ws.get('game_hour', 8):02d}:00 — {season}\n"
+
+    try:
+        daily_bonuses = await services.daily_event.get_active_daily_bonuses()
+        if daily_bonuses:
+            bonus_text = []
+            if "shop_discount" in daily_bonuses:
+                bonus_text.append(f"🛒 -{int((1 - daily_bonuses['shop_discount']) * 100)}% в магазинах")
+            if "xp_mult" in daily_bonuses:
+                bonus_text.append(f"⚔️ +{int((daily_bonuses['xp_mult'] - 1) * 100)}% XP")
+            if "gold_mult" in daily_bonuses:
+                bonus_text.append(f"🪙 x{daily_bonuses['gold_mult']} золота")
+            if "free_heal" in daily_bonuses:
+                bonus_text.append("💚 Бесплатное лечение")
+            if bonus_text:
+                text += f"📜 Сегодня: {' | '.join(bonus_text)}\n"
+    except Exception:
+        pass
+
+    try:
+        seasonal_rewards = await services.seasonal_event.get_active_seasonal_rewards()
+        if seasonal_rewards:
+            sr_text = []
+            if "xp_bonus" in seasonal_rewards:
+                sr_text.append(f"+{int((seasonal_rewards['xp_bonus'] - 1) * 100)}% XP")
+            if "gold_bonus" in seasonal_rewards:
+                sr_text.append(f"+{int((seasonal_rewards['gold_bonus'] - 1) * 100)}% золота")
+            if sr_text:
+                text += f"🌿 Сезон: {' | '.join(sr_text)}\n"
+    except Exception:
+        pass
 
     if catchup:
         season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
