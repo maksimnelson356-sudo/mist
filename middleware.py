@@ -16,11 +16,8 @@ class CallbackAnswerMiddleware(BaseMiddleware):
         event: CallbackQuery,
         data: dict[str, Any],
     ) -> Any:
-        logger.info(f"[MW] callback answer: data={event.data} user={event.from_user.id}")
         try:
             await event.answer()
-        except Exception as e:
-            logger.warning(f"[MW] answer failed: {e}")
-        result = await handler(event, data)
-        logger.info(f"[MW] handler done: data={event.data}")
-        return result
+        except Exception:
+            pass
+        return await handler(event, data)

@@ -224,19 +224,8 @@ async def cb_revive(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=kb)
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
-    logger.info(f"[MENU] START user={callback.from_user.id}")
-    try:
-        user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
-    except Exception as e:
-        logger.error(f"[MENU] A FAILED: {type(e).__name__}: {e}")
-        raise
-    logger.info(f"[MENU] A ok alive={user.get('is_alive')} loc={user.get('current_location')}")
-    try:
-        await services.player.update_last_seen(callback.from_user.id)
-    except Exception as e:
-        logger.error(f"[MENU] B FAILED: {type(e).__name__}: {e}")
-        raise
-    logger.info("[MENU] B ok")
+    user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
+    await services.player.update_last_seen(callback.from_user.id)
 
     if not user["is_alive"]:
         text = "<pre>💀\n🕯️👁🕯️\n💀</pre>\n💀 <b>Ты мёртв.</b>\n\nТуман накрыл тебя."
@@ -246,12 +235,7 @@ async def cb_main_menu(callback: CallbackQuery):
         await callback.message.edit_text(text, reply_markup=kb)
         return
 
-    try:
-        catchup = await services.player.get_catchup_summary(callback.from_user.id)
-    except Exception as e:
-        logger.error(f"[MENU] C FAILED: {type(e).__name__}: {e}")
-        raise
-    logger.info(f"[MENU] C ok catchup={'yes' if catchup else 'no'}")
+    catchup = await services.player.get_catchup_summary(callback.from_user.id)
 
     if catchup and catchup.get("hunger_loss", 0) > 0:
         new_hunger = catchup["new_hunger"]
@@ -266,14 +250,9 @@ async def cb_main_menu(callback: CallbackQuery):
             break
         user["hunger"] = new_hunger
 
-    try:
-        loc = await services.movement.get_location(user["current_location"])
-    except Exception as e:
-        logger.error(f"[MENU] D FAILED: {type(e).__name__}: {e}")
-        raise
+    loc = await services.movement.get_location(user["current_location"])
     loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
-    logger.info(f"[MENU] D ok loc_name={loc_name}")
 
     text = ""
     if scene:
@@ -299,8 +278,8 @@ async def cb_main_menu(callback: CallbackQuery):
                 bonus_text.append("💚 Бесплатное лечение")
             if bonus_text:
                 text += f"📜 Сегодня: {' | '.join(bonus_text)}\n"
-    except Exception as e:
-        logger.warning(f"[MENU] E daily_bonuses: {type(e).__name__}: {e}")
+    except Exception:
+        pass
 
     try:
         seasonal_rewards = await services.seasonal_event.get_active_seasonal_rewards()
@@ -312,10 +291,8 @@ async def cb_main_menu(callback: CallbackQuery):
                 sr_text.append(f"+{int((seasonal_rewards['gold_bonus'] - 1) * 100)}% золота")
             if sr_text:
                 text += f"🌿 Сезон: {' | '.join(sr_text)}\n"
-    except Exception as e:
-        logger.warning(f"[MENU] F seasonal: {type(e).__name__}: {e}")
-
-    logger.info("[MENU] G before catchup block")
+    except Exception:
+        pass
 
     if catchup:
         season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
@@ -339,22 +316,16 @@ async def cb_main_menu(callback: CallbackQuery):
             text += f"  ⚠️ Опасность: {loc_data['danger_level']} | 🍖 Еда: {loc_data['food_supply']}\n"
         text += "\n"
 
-    logger.info("[MENU] H after catchup block")
-
     text += (
         f"📍 <b>{loc_name}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
     )
-    logger.info(f"[MENU] text len={len(text)}, calling edit_text")
     try:
         await callback.message.edit_text(text, reply_markup=main_menu_kb())
-        logger.info("[MENU] edit_text SUCCESS")
-    except Exception as e:
-        logger.warning(f"[MENU] edit_text FAILED: {type(e).__name__}: {e}")
+    except Exception:
         await callback.message.answer(text, reply_markup=main_menu_kb())
-        logger.info("[MENU] fallback answer sent")
 
 
 # ──────────────────────────────────────────────
