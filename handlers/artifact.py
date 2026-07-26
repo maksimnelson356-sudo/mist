@@ -58,9 +58,6 @@ async def cb_artifact_menu(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("artifact_view:"))
 async def cb_artifact_view(callback: CallbackQuery):
     artifact_id = callback.data.split(":")[1]
@@ -110,9 +107,6 @@ async def cb_artifact_view(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("artifact_use:"))
 async def cb_artifact_use(callback: CallbackQuery):
     artifact_id = callback.data.split(":")[1]
@@ -134,9 +128,6 @@ async def cb_artifact_use(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data=f"artifact_view:{artifact_id}")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("artifact_lore:"))
 async def cb_artifact_lore(callback: CallbackQuery):
     artifact_id = callback.data.split(":")[1]
@@ -155,4 +146,3 @@ async def cb_artifact_lore(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data=f"artifact_view:{artifact_id}")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

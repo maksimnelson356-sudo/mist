@@ -81,7 +81,6 @@ async def cb_npc_talk(callback: CallbackQuery):
                     [InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")]
                 ])
                 await callback.message.edit_text(text, reply_markup=kb)
-                await callback.answer()
                 return
 
     ws = services.world_engine.get_state() or {}
@@ -118,9 +117,6 @@ async def cb_npc_talk(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("npc_heal:"))
 async def cb_npc_heal(callback: CallbackQuery):
     npc_id = callback.data.split(":", 1)[1]

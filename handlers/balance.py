@@ -26,9 +26,6 @@ async def cb_balance_menu(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "economy_transfer")
 async def cb_economy_transfer(callback: CallbackQuery):
     text = (
@@ -41,4 +38,3 @@ async def cb_economy_transfer(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="balance_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

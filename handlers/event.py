@@ -48,9 +48,6 @@ async def cb_event_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("event_view:"))
 async def cb_event_view(callback: CallbackQuery):
     record_id = callback.data.split(":", 1)[1]
@@ -87,9 +84,6 @@ async def cb_event_view(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="event_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("event_act:"))
 async def cb_event_act(callback: CallbackQuery):
     parts = callback.data.split(":", 2)
@@ -112,4 +106,3 @@ async def cb_event_act(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

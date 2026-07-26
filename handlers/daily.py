@@ -47,9 +47,6 @@ async def cb_daily_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
-    await callback.answer()
-
-
 @router.callback_query(F.data == "daily_claim")
 async def cb_daily_claim(callback: CallbackQuery):
     result = await services.daily_reward.claim(callback.from_user.id)
@@ -60,9 +57,6 @@ async def cb_daily_claim(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "daily_quests")
 async def cb_daily_quests(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -111,4 +105,3 @@ async def cb_daily_quests(callback: CallbackQuery):
         reply_markup=keyboard,
         parse_mode="HTML"
     )
-    await callback.answer()

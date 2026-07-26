@@ -45,9 +45,6 @@ async def cb_trade_menu(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("trade_accept:"))
 async def cb_trade_accept(callback: CallbackQuery):
     trade_id = int(callback.data.split(":")[1])
@@ -62,9 +59,6 @@ async def cb_trade_accept(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
     ])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("trade_decline:"))
 async def cb_trade_decline(callback: CallbackQuery):
     trade_id = int(callback.data.split(":")[1])
@@ -79,4 +73,3 @@ async def cb_trade_decline(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
     ])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()

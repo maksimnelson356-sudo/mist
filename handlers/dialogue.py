@@ -36,9 +36,6 @@ async def cb_dialogue_start(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("dialogue:"))
 async def cb_dialogue_continue(callback: CallbackQuery):
     parts = callback.data.split(":")
@@ -51,7 +48,6 @@ async def cb_dialogue_continue(callback: CallbackQuery):
         await callback.message.edit_text("Диалог завершён.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ Назад", callback_data="creature_menu")],
         ]))
-        await callback.answer()
         return
 
     result = await services.dialogue.continue_dialogue(npc_type, choice_id, user_id)
@@ -75,4 +71,3 @@ async def cb_dialogue_continue(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

@@ -31,9 +31,6 @@ async def cb_leaderboard_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("leaderboard:"))
 async def cb_leaderboard(callback: CallbackQuery):
     board_type = callback.data.split(":")[1]
@@ -57,4 +54,3 @@ async def cb_leaderboard(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="leaderboard_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

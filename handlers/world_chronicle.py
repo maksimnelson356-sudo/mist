@@ -52,9 +52,6 @@ async def cb_world_chronicle(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("chronicle_filter:"))
 async def cb_chronicle_filter(callback: CallbackQuery):
     filter_type = callback.data.split(":")[1]
@@ -89,4 +86,3 @@ async def cb_chronicle_filter(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="world_chronicle")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

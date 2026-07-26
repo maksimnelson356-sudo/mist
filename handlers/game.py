@@ -220,9 +220,6 @@ async def cb_revive(callback: CallbackQuery):
         text = result["message"]
         kb = back_menu_kb()
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
@@ -234,10 +231,7 @@ async def cb_main_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ])
         await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
         return
-
-    await callback.answer()
 
     catchup = await services.player.get_catchup_summary(callback.from_user.id)
 
@@ -342,10 +336,8 @@ async def cb_look(callback: CallbackQuery):
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ]))
-        await callback.answer()
         return
 
-    await callback.answer()
     loc = await services.movement.get_location(user["current_location"])
     creatures = await services.movement.get_creatures_at(user["current_location"])
     ground = await services.movement.get_ground_items(user["current_location"])
@@ -444,7 +436,6 @@ async def cb_creature_menu(callback: CallbackQuery):
 
     if not creatures:
         await callback.message.edit_text("Здесь никого нет.", reply_markup=back_menu_kb())
-        await callback.answer()
         return
 
     text = "👁 <b>К кому подойти?</b>\n\n"
@@ -453,9 +444,6 @@ async def cb_creature_menu(callback: CallbackQuery):
         text += f"{icon} {c['name']}\n"
 
     await callback.message.edit_text(text, reply_markup=creature_action_kb(creatures))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("creature_action:"))
 async def cb_creature_action(callback: CallbackQuery):
     creature_id = callback.data.split(":")[1]
@@ -465,7 +453,6 @@ async def cb_creature_action(callback: CallbackQuery):
 
     if not creature or not creature["is_alive"]:
         await callback.message.edit_text("Этого существа здесь нет.", reply_markup=back_menu_kb())
-        await callback.answer()
         return
 
     icon = {"hostile": "🔴", "neutral": "🟡", "friendly": "🟢"}.get(creature["disposition"], "⚪")
@@ -488,9 +475,6 @@ async def cb_creature_action(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("talk:"))
 async def cb_talk(callback: CallbackQuery):
     creature_id = callback.data.split(":")[1]
@@ -502,9 +486,6 @@ async def cb_talk(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  Подбор предметов
 # ──────────────────────────────────────────────
@@ -516,7 +497,6 @@ async def cb_ground_menu(callback: CallbackQuery):
 
     if not ground:
         await callback.message.edit_text("На земле ничего нет.", reply_markup=back_menu_kb())
-        await callback.answer()
         return
 
     text = "📦 <b>На земле:</b>\n\n"
@@ -531,9 +511,6 @@ async def cb_ground_menu(callback: CallbackQuery):
     kb.inline_keyboard.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("pickup:"))
 async def cb_pickup(callback: CallbackQuery):
     item_id = callback.data.split(":")[1]
@@ -551,9 +528,6 @@ async def cb_pickup(callback: CallbackQuery):
                     await services.quest.update_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
     await callback.message.edit_text(result["message"], reply_markup=post_action_kb())
-    await callback.answer()
-
-
 @router.callback_query(F.data == "pickup_all")
 async def cb_pickup_all(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
@@ -561,7 +535,6 @@ async def cb_pickup_all(callback: CallbackQuery):
 
     if not ground:
         await callback.message.edit_text("На земле ничего нет.", reply_markup=back_menu_kb())
-        await callback.answer()
         return
 
     picked = []
@@ -582,9 +555,6 @@ async def cb_pickup_all(callback: CallbackQuery):
 
     text = "🤲 <b>Подобрано:</b>\n\n" + "\n".join(f"• {p}" for p in picked)
     await callback.message.edit_text(text, reply_markup=post_action_kb())
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  Карта / Движение
 # ──────────────────────────────────────────────
@@ -605,9 +575,6 @@ async def cb_locations(callback: CallbackQuery):
 
     kb = await nav_kb(connections)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("move:"))
 async def cb_move(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
@@ -615,7 +582,6 @@ async def cb_move(callback: CallbackQuery):
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ]))
-        await callback.answer()
         return
     target = callback.data.split(":")[1]
     result = await services.movement.move(callback.from_user.id, target)
@@ -666,9 +632,6 @@ async def cb_move(callback: CallbackQuery):
         kb = back_menu_kb()
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  Бой
 # ──────────────────────────────────────────────
@@ -680,7 +643,6 @@ async def cb_fight_menu(callback: CallbackQuery):
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ]))
-        await callback.answer()
         return
     creatures = await services.movement.get_creatures_at(user["current_location"])
 
@@ -700,9 +662,6 @@ async def cb_fight_menu(callback: CallbackQuery):
         kb = combat_kb(hostile)
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("attack:"))
 async def cb_attack(callback: CallbackQuery):
     creature_id = callback.data.split(":")[1]
@@ -710,7 +669,6 @@ async def cb_attack(callback: CallbackQuery):
 
     if not result["success"]:
         await callback.message.edit_text(result["message"], reply_markup=post_action_kb())
-        await callback.answer()
         return
 
     combat = await services.combat.resolve(callback.from_user.id, creature_id)
@@ -761,9 +719,6 @@ async def cb_attack(callback: CallbackQuery):
         kb = post_action_kb()
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  Исцеление
 # ──────────────────────────────────────────────
@@ -777,7 +732,6 @@ async def cb_heal(callback: CallbackQuery):
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ])
         await callback.message.edit_text("💀 Ты мёртв. Очнись сначала.", reply_markup=kb)
-        await callback.answer()
         return
 
     free_heal = False
@@ -804,9 +758,6 @@ async def cb_heal(callback: CallbackQuery):
 
     kb = post_action_kb()
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 FOOD_HUNGER = {
     "bread": 20, "fish": 25, "apple": 15, "cheese": 30,
     "dried_meat": 35, "berry": 10,
@@ -841,9 +792,6 @@ async def cb_eat_food(callback: CallbackQuery):
 
     text = "🍖 <b>Поесть</b>\n\nВыбери еду:"
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("eat:"))
 async def cb_eat(callback: CallbackQuery):
     item_id = callback.data.split(":", 1)[1]
@@ -892,18 +840,12 @@ async def cb_inventory(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("use_item:"))
 async def cb_use_item(callback: CallbackQuery):
     item_id = callback.data.split(":", 1)[1]
     result = await services.inventory.use_item(callback.from_user.id, item_id)
     kb = post_action_kb()
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  Статус
 # ──────────────────────────────────────────────
@@ -935,9 +877,6 @@ async def cb_status(callback: CallbackQuery):
         f"⚖️ Карма: {user['karma']}"
     )
     await callback.message.edit_text(text, reply_markup=back_menu_kb())
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  Энциклопедия
 # ──────────────────────────────────────────────
@@ -954,9 +893,6 @@ async def cb_legends(callback: CallbackQuery):
         "<i>Каждый первый человек, открывший нечто,\nнавсегда вписан в историю.</i>"
     )
     await callback.message.edit_text(text, reply_markup=back_menu_kb())
-    await callback.answer()
-
-
 # ──────────────────────────────────────────────
 #  /trade — быстрый трейд
 # ──────────────────────────────────────────────

@@ -138,9 +138,6 @@ async def cb_quests(callback: CallbackQuery):
         buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 # -------------------------------------------------
 # Import визуальных ресурсов
 # -------------------------------------------------
@@ -159,8 +156,6 @@ async def cb_accept(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
     # Визуал: квест принят
     await send_visual(callback, key="quest_accept", caption="📜 Квест принят!")
 
@@ -177,4 +172,3 @@ async def cb_turnin(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

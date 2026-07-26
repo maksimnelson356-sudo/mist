@@ -35,7 +35,6 @@ async def cb_shop(callback: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
         ])
         await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
         return
 
     text = f"🛒 <b>Магазин</b>\n\n💰 Золото: {user['gold']} 🪙\n\n"
@@ -52,9 +51,6 @@ async def cb_shop(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("shop_open:"))
 async def cb_shop_open(callback: CallbackQuery):
     shop_id = callback.data.split(":")[1]
@@ -91,9 +87,6 @@ async def cb_shop_open(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("shop_buy_item:"))
 async def cb_shop_buy(callback: CallbackQuery):
     parts = callback.data.split(":")
@@ -118,9 +111,6 @@ async def cb_shop_buy(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "shop_sell")
 async def cb_shop_sell(callback: CallbackQuery):
     items = await services.inventory.get(callback.from_user.id)
@@ -131,7 +121,6 @@ async def cb_shop_sell(callback: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
         ])
         await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
         return
 
     rarity_prices = {"common": 3, "rare": 8, "epic": 20, "legendary": 50}
@@ -152,9 +141,6 @@ async def cb_shop_sell(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("shop_sell_item:"))
 async def cb_shop_sell_item(callback: CallbackQuery):
     item_id = callback.data.split(":")[1]
@@ -166,9 +152,6 @@ async def cb_shop_sell_item(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "shop_balance")
 async def cb_shop_balance(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
@@ -179,9 +162,6 @@ async def cb_shop_balance(callback: CallbackQuery):
         [InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 def _is_nearby(loc1: str, loc2: str) -> bool:
     connections = {
         "fishing_village": ["riverbank", "market_square"],
@@ -221,9 +201,6 @@ async def cb_shop_seasonal(callback: CallbackQuery):
 
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="shop")])
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("shop_buy_seasonal:"))
 async def cb_shop_buy_seasonal(callback: CallbackQuery):
     item_id = callback.data.split(":", 1)[1]

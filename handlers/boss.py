@@ -55,9 +55,6 @@ async def cb_boss_menu(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("boss_fight:"))
 async def cb_boss_fight(callback: CallbackQuery):
     boss_id = callback.data.split(":")[1]
@@ -129,9 +126,6 @@ async def cb_boss_fight(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "boss_history")
 async def cb_boss_history(callback: CallbackQuery):
     history = await services.world_boss.get_boss_history()
@@ -151,4 +145,3 @@ async def cb_boss_history(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="boss_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

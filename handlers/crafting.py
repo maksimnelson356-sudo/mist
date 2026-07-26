@@ -13,7 +13,6 @@ async def cb_crafting_menu(callback: CallbackQuery):
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ]))
-        await callback.answer()
         return
 
     recipes = await services.crafting.get_recipes(user["current_location"])
@@ -28,7 +27,6 @@ async def cb_crafting_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
         ])
         await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
         return
 
     text = f"⚒️ <b>Крафт</b>\n\n📍 <i>Доступные рецепты:</i>\n\n"
@@ -62,9 +60,6 @@ async def cb_crafting_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="📋 История", callback_data="crafting_history")])
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("craft:"))
 async def cb_craft(callback: CallbackQuery):
     recipe_id = callback.data.split(":")[1]
@@ -86,9 +81,6 @@ async def cb_craft(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "crafting_history")
 async def cb_crafting_history(callback: CallbackQuery):
     history = await services.crafting.get_history(callback.from_user.id, limit=20)
@@ -105,4 +97,3 @@ async def cb_crafting_history(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()

@@ -33,9 +33,6 @@ async def cb_faction_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("faction_view:"))
 async def cb_faction_view(callback: CallbackQuery):
     faction_id = callback.data.split(":")[1]
@@ -75,9 +72,6 @@ async def cb_faction_view(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="faction_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("faction_join:"))
 async def cb_faction_join(callback: CallbackQuery):
     faction_id = callback.data.split(":")[1]
@@ -92,9 +86,6 @@ async def cb_faction_join(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="faction_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("faction_leave:"))
 async def cb_faction_leave(callback: CallbackQuery):
     faction_id = callback.data.split(":")[1]
@@ -109,9 +100,6 @@ async def cb_faction_leave(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="faction_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("faction_rep:"))
 async def cb_faction_rep(callback: CallbackQuery):
     parts = callback.data.split(":")

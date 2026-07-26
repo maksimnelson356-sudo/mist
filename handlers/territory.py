@@ -31,9 +31,6 @@ async def cb_territory_menu(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "territory_claim")
 async def cb_territory_claim(callback: CallbackQuery):
     user = await services.player.get(callback.from_user.id)
@@ -59,9 +56,6 @@ async def cb_territory_claim(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Территории", callback_data="territory_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "territory_contest")
 async def cb_territory_contest(callback: CallbackQuery):
     user = await services.player.get(callback.from_user.id)
@@ -87,4 +81,3 @@ async def cb_territory_contest(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Территории", callback_data="territory_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

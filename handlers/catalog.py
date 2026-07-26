@@ -35,9 +35,6 @@ async def cb_catalog_menu(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("catalog_list:"))
 async def cb_catalog_list(callback: CallbackQuery):
     _catalog_searching.discard(callback.from_user.id)
@@ -67,9 +64,6 @@ async def cb_catalog_list(callback: CallbackQuery):
     buttons = [[InlineKeyboardButton(text="◀️ Назад", callback_data="catalog_menu")]]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "catalog_search")
 async def cb_catalog_search(callback: CallbackQuery):
     _catalog_searching.add(callback.from_user.id)
@@ -81,9 +75,6 @@ async def cb_catalog_search(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="catalog_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.message(F.text)
 async def cb_catalog_search_query(message: Message):
     if message.from_user.id not in _catalog_searching:

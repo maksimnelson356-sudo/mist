@@ -26,7 +26,6 @@ async def cb_home_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
         ])
         await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
         return
 
     type_def = HOME_TYPES.get(home["home_type"], {})
@@ -62,9 +61,6 @@ async def cb_home_menu(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_enter")
 async def cb_home_enter(callback: CallbackQuery):
     result = await services.home.visit_home(callback.from_user.id)
@@ -98,9 +94,6 @@ async def cb_home_enter(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_build")
 async def cb_home_build(callback: CallbackQuery):
     text = (
@@ -120,9 +113,6 @@ async def cb_home_build(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("home_build:"))
 async def cb_home_build_confirm(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -147,9 +137,6 @@ async def cb_home_build_confirm(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_rooms")
 async def cb_home_rooms(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -190,9 +177,6 @@ async def cb_home_rooms(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("home_add_room:"))
 async def cb_home_add_room(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -233,9 +217,6 @@ async def cb_home_add_room(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_upgrade")
 async def cb_home_upgrade(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -274,9 +255,6 @@ async def cb_home_upgrade(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_upgrade_confirm")
 async def cb_home_upgrade_confirm(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -316,9 +294,6 @@ async def cb_home_upgrade_confirm(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_history")
 async def cb_home_history(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -342,9 +317,6 @@ async def cb_home_history(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_storage")
 async def cb_home_storage(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -387,9 +359,6 @@ async def cb_home_storage(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("home_deposit:"))
 async def cb_home_deposit(callback: CallbackQuery):
     item_id = callback.data.split(":", 1)[1]
@@ -460,9 +429,6 @@ async def cb_home_repair(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("home_repair:"))
 async def cb_home_repair_confirm(callback: CallbackQuery):
     material = callback.data.split(":")[1]
@@ -479,9 +445,6 @@ async def cb_home_repair_confirm(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "home_defenses")
 async def cb_home_defenses(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -519,9 +482,6 @@ async def cb_home_defenses(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="home_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("home_build_def:"))
 async def cb_home_defense_confirm(callback: CallbackQuery):
     defense_type = callback.data.split(":")[1]
@@ -538,9 +498,6 @@ async def cb_home_defense_confirm(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("restore_loc:"))
 async def cb_restore_location(callback: CallbackQuery):
     location_id = callback.data.split(":")[1]
@@ -578,9 +535,6 @@ async def cb_restore_location(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="look")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("restore_confirm:"))
 async def cb_restore_confirm(callback: CallbackQuery):
     parts = callback.data.split(":")
@@ -600,4 +554,3 @@ async def cb_restore_confirm(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(result["message"], reply_markup=kb)
-    await callback.answer()

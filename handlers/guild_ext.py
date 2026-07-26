@@ -26,9 +26,6 @@ async def cb_guild_ext_menu(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_storage")
 async def cb_guild_storage(callback: CallbackQuery):
     result = await services.guild_ext.get_storage(callback.from_user.id)
@@ -52,9 +49,6 @@ async def cb_guild_storage(callback: CallbackQuery):
     ]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_storage_deposit")
 async def cb_guild_storage_deposit(callback: CallbackQuery):
     text = (
@@ -67,9 +61,6 @@ async def cb_guild_storage_deposit(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_storage")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_storage_withdraw")
 async def cb_guild_storage_withdraw(callback: CallbackQuery):
     text = (
@@ -82,9 +73,6 @@ async def cb_guild_storage_withdraw(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_storage")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_bank")
 async def cb_guild_bank(callback: CallbackQuery):
     result = await services.guild_ext.get_bank_info(callback.from_user.id)
@@ -109,9 +97,6 @@ async def cb_guild_bank(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="guild_ext_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_bank_deposit")
 async def cb_guild_bank_deposit(callback: CallbackQuery):
     text = (
@@ -124,9 +109,6 @@ async def cb_guild_bank_deposit(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_bank")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_bank_withdraw")
 async def cb_guild_bank_withdraw(callback: CallbackQuery):
     text = (
@@ -139,9 +121,6 @@ async def cb_guild_bank_withdraw(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_bank")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "guild_quests")
 async def cb_guild_quests(callback: CallbackQuery):
     result = await services.guild_ext.get_guild_quests(callback.from_user.id)
@@ -169,9 +148,6 @@ async def cb_guild_quests(callback: CallbackQuery):
     buttons = [[InlineKeyboardButton(text="◀️ Назад", callback_data="guild_ext_menu")]]
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.message(F.text.startswith("положить"))
 async def cmd_guild_deposit_item(message: Message):
     parts = message.text.split()

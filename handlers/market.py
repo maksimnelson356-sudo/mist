@@ -54,9 +54,6 @@ async def cb_market_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("market_category:"))
 async def cb_market_category(callback: CallbackQuery):
     category = callback.data.split(":")[1]
@@ -88,4 +85,3 @@ async def cb_market_category(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="market_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

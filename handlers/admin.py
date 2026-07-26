@@ -25,9 +25,6 @@ async def cb_admin_menu(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
     ])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
-
-
 @router.message(F.text.startswith("/admin_level "))
 async def cmd_admin_level(message):
     if not is_admin(message.from_user.id):

@@ -36,9 +36,6 @@ async def cb_raid_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "raid_create")
 async def cb_raid_create(callback: CallbackQuery):
     text = "📢 <b>Создать рейд</b>\n\nВыбери босса:\n\n"
@@ -52,9 +49,6 @@ async def cb_raid_create(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="raid_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("raid_create:"))
 async def cb_raid_create_confirm(callback: CallbackQuery):
     boss_id = callback.data.split(":")[1]
@@ -70,9 +64,6 @@ async def cb_raid_create_confirm(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("raid_join:"))
 async def cb_raid_join(callback: CallbackQuery):
     boss_id = callback.data.split(":")[1]
@@ -88,9 +79,6 @@ async def cb_raid_join(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="raid_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("raid_attack:"))
 async def cb_raid_attack(callback: CallbackQuery):
     boss_id = callback.data.split(":")[1]
@@ -124,4 +112,3 @@ async def cb_raid_attack(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

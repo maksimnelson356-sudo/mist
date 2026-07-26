@@ -35,9 +35,6 @@ async def cb_npc_quests(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data=f"npc_talk:{npc_id}")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("npc_quest_accept:"))
 async def cb_npc_quest_accept(callback: CallbackQuery):
     parts = callback.data.split(":", 2)
@@ -55,4 +52,3 @@ async def cb_npc_quest_accept(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data=f"npc_talk:{npc_id}")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

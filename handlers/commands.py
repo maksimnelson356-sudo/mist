@@ -466,4 +466,3 @@ async def cb_commands(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

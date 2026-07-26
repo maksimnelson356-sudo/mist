@@ -82,4 +82,3 @@ async def cb_achievements(callback: CallbackQuery):
         reply_markup=kb,
         parse_mode="HTML"
     )
-    await callback.answer()

@@ -20,7 +20,6 @@ async def cb_war_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
         ])
         await callback.message.edit_text(text, reply_markup=kb)
-        await callback.answer()
         return
 
     active = await services.guild_war.get_active_wars()
@@ -65,9 +64,6 @@ async def cb_war_menu(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("war_view:"))
 async def cb_war_view(callback: CallbackQuery):
     war_id = callback.data.split(":")[1]
@@ -108,9 +104,6 @@ async def cb_war_view(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="war_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("war_battle:"))
 async def cb_war_battle(callback: CallbackQuery):
     parts = callback.data.split(":")
@@ -152,9 +145,6 @@ async def cb_war_battle(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data=f"war_view:{war_id}")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("war_surrender:"))
 async def cb_war_surrender(callback: CallbackQuery):
     war_id = callback.data.split(":")[1]
@@ -186,9 +176,6 @@ async def cb_war_surrender(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="war_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "war_declare")
 async def cb_war_declare(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -217,9 +204,6 @@ async def cb_war_declare(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="war_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("war_declare_target:"))
 async def cb_war_declare_target(callback: CallbackQuery):
     target_id = callback.data.split(":")[1]
@@ -246,4 +230,3 @@ async def cb_war_declare_target(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Меню", callback_data="war_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

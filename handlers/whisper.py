@@ -72,4 +72,3 @@ async def cb_whisper(callback: CallbackQuery):
         "<i>Туман отвечает не всегда. Но когда отвечает — запоминаешь.</i>"
     )
     await callback.message.edit_text(text, reply_markup=_whisper_kb())
-    await callback.answer()

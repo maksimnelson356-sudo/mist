@@ -52,9 +52,6 @@ async def cb_class_menu(callback: CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("class_select:"))
 async def cb_class_select(callback: CallbackQuery):
     class_id = callback.data.split(":")[1]
@@ -75,9 +72,6 @@ async def cb_class_select(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "class_abilities")
 async def cb_class_abilities(callback: CallbackQuery):
     user_class = await services.player_class.get_class(callback.from_user.id)
@@ -97,4 +91,3 @@ async def cb_class_abilities(callback: CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад", callback_data="class_menu")],
     ])
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

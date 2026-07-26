@@ -28,9 +28,6 @@ async def cb_pvp_menu(callback: CallbackQuery):
     ]
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data == "pvp_find")
 async def cb_pvp_find(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
@@ -42,7 +39,6 @@ async def cb_pvp_find(callback: CallbackQuery):
                 [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
             ])
         )
-        await callback.answer()
         return
 
     if user["hp"] < user["max_hp"] * 0.3:
@@ -53,7 +49,6 @@ async def cb_pvp_find(callback: CallbackQuery):
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="pvp_menu")],
             ])
         )
-        await callback.answer()
         return
 
     opponents = await services.pvp.get_opponents(callback.from_user.id)
@@ -65,7 +60,6 @@ async def cb_pvp_find(callback: CallbackQuery):
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="pvp_menu")]
             ])
         )
-        await callback.answer()
         return
 
     text = "⚔️ <b>Выбери противника:</b>\n\n"
@@ -85,9 +79,6 @@ async def cb_pvp_find(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="pvp_menu")])
 
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("pvp_attack:"))
 async def cb_pvp_attack(callback: CallbackQuery):
     target_id = int(callback.data.split(":")[1])
@@ -102,7 +93,6 @@ async def cb_pvp_attack(callback: CallbackQuery):
         await callback.message.edit_text(result["message"], reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ Назад", callback_data="pvp_menu")]
         ]))
-        await callback.answer()
         return
 
     target = await services.player.get_or_create(target_id)
@@ -139,9 +129,6 @@ async def cb_pvp_attack(callback: CallbackQuery):
         ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "pvp_leaderboard")
 async def cb_pvp_leaderboard(callback: CallbackQuery):
     leaders = await services.pvp.get_leaderboard()
@@ -163,4 +150,3 @@ async def cb_pvp_leaderboard(callback: CallbackQuery):
     ])
 
     await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()

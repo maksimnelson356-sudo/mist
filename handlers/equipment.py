@@ -74,8 +74,6 @@ async def cb_equipment_menu(callback: CallbackQuery):
     text = "\n".join(lines)
     markup = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
-    await callback.answer()
-
 @router.callback_query(F.data.startswith("equip:"))
 async def cb_equip(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -164,4 +162,3 @@ async def cb_compare(callback: CallbackQuery):
     text = "\n".join(lines)
     markup = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
-    await callback.answer()
