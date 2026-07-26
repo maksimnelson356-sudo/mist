@@ -88,10 +88,13 @@ class EcosystemService:
             for c in creatures:
                 loc = c["location"]
                 if loc not in region_counts:
-                    region_counts[loc] = {"total": 0, "herbivore": 0, "carnivore": 0, "apex": 0}
+                    region_counts[loc] = {"total": 0, "herbivore": 0, "carnivore": 0, "apex": 0, "ids": []}
                 region_counts[loc]["total"] += 1
-                role = CREATURE_ROLES.get(c["creature_id"], "carnivore")
+                role = CREATURE_ROLES.get(c["creature_id"].rsplit("_", 1)[0] if "_" in c["creature_id"] else c["creature_id"], "carnivore")
                 region_counts[loc][role] = region_counts[loc].get(role, 0) + 1
+                region_counts[loc]["ids"].append({"id": c["id"], "creature_id": c["creature_id"], "role": role, "hp": c["hp"]})
+
+            await self._process_food_chain(db, region_counts)
 
             for loc, counts in region_counts.items():
                 if counts["total"] > 15:
@@ -115,6 +118,29 @@ class EcosystemService:
                     await self._spawn_creatures(db, loc, missing, weather, game_hour)
 
             await db.commit()
+
+    async def _process_food_chain(self, db, region_counts: dict):
+        for loc, counts in region_counts.items():
+            creatures = counts.get("ids", [])
+            herbivores = [c for c in creatures if c["role"] == "herbivore"]
+            carnivores = [c for c in creatures if c["role"] in ("carnivore", "apex")]
+
+            if carnivores and herbivores:
+                for carnivore in carnivores:
+                    if herbivores and random.random() < 0.30:
+                        prey = random.choice(herbivores)
+                        await db.execute(
+                            text("UPDATE creatures SET is_alive = 0 WHERE id = :id"),
+                            {"id": prey["id"]},
+                        )
+                        herbivores.remove(prey)
+                        counts["total"] -= 1
+                        logger.info(f"Цепь питания: {carnivore['creature_id']} съел {prey['creature_id']} в {loc}")
+
+            if not herbivores and counts.get("herbivore", 0) == 0 and counts["total"] < 8:
+                if random.random() < 0.40:
+                    await self._spawn_creatures(db, loc, 1, "clear", 12)
+                    logger.info(f"Цепь питания: травоядные вымерли в {loc}, спавн нового")
 
     async def _spawn_creatures(self, db, location_id: str, count: int, weather: str = "clear", game_hour: int = 12):
         weather_behavior = CREATURE_WEATHER_BEHAVIOR.get(weather, CREATURE_WEATHER_BEHAVIOR["clear"])
