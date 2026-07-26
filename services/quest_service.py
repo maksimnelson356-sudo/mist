@@ -116,6 +116,8 @@ class QuestService:
                 return {"success": False, "message": "Квест не найден."}
 
             user = await self.user_service.get(user_id)
+            if not user:
+                return {"success": False, "message": "Пользователь не найден."}
             if quest.location and quest.location != user["current_location"]:
                 return {"success": False, "message": "Ты не в той локации для этого квеста."}
 
@@ -368,6 +370,7 @@ class QuestService:
                     "completed_at": uq.completed_at,
                     "name": q.name,
                     "description": q.description,
+                    "location": q.location,
                     "objectives": json.loads(q.objectives) if isinstance(q.objectives, str) else q.objectives,
                     "rewards": json.loads(q.rewards) if isinstance(q.rewards, str) else q.rewards,
                 })
@@ -387,7 +390,7 @@ class QuestService:
 
             db.add(LegendModel(
                 legend_id=legend_id,
-                legend_type=legend_type,
+                category=legend_type,
                 name=name,
                 description=description,
                 discovered_by=player_id,
@@ -410,16 +413,16 @@ class QuestService:
             from database.models.quest import LegendModel
             from sqlalchemy import func as sa_func
 
-            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.legend_type == "creature")
+            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.category == "creature")
             creatures_found = (await db.execute(stmt)).scalar() or 0
 
-            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.legend_type == "item")
+            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.category == "item")
             items_found = (await db.execute(stmt)).scalar() or 0
 
-            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.legend_type == "location")
+            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.category == "location")
             places_found = (await db.execute(stmt)).scalar() or 0
 
-            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.legend_type == "lore")
+            stmt = select(sa_func.count()).select_from(LegendModel).where(LegendModel.category == "lore")
             lore_found = (await db.execute(stmt)).scalar() or 0
 
             return {
@@ -439,7 +442,6 @@ class QuestService:
                 level=new_level, max_hp=new_max_hp, attack=new_attack, defense=new_defense,
             )
         )
-        await db.commit()
 
     async def _add_item(self, user_id: int, item_id: str, qty: int, db):
         stmt = select(InventoryModel).where(
@@ -453,7 +455,6 @@ class QuestService:
             existing.quantity += qty
         else:
             db.add(InventoryModel(user_id=user_id, item_id=item_id, quantity=qty))
-        await db.commit()
 
     @staticmethod
     def _quest_to_dict(q: QuestModel) -> dict:

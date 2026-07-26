@@ -1,8 +1,6 @@
+import random
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-from sqlalchemy import update
-from database.base import get_db
-from database.models.user import UserModel
 from services.container import services
 from services.world_boss_service import WORLD_BOSS_DEFS
 
@@ -101,20 +99,17 @@ async def cb_boss_fight(callback: CallbackQuery):
         )
 
         loot = boss_def.get("loot_table", [])
-        dropped = [l for l in loot if __import__("random").random() < l.get("chance", 0.5)]
+        dropped = [l for l in loot if random.random() < l.get("chance", 0.5)]
         if dropped:
             text += "\n\n📦 <b>Лут:</b>\n"
             for l in dropped:
+                await services.inventory.add(user_id, l["item"], l.get("qty", 1))
                 text += f"  • {l['item']} x{l['qty']}\n"
 
-        async for db in get_db():
-            await db.execute(
-                update(UserModel).where(UserModel.user_id == user_id).values(
-                    xp=user["xp"] + boss_def.get("xp_reward", 0),
-                    gold=user["gold"] + boss_def.get("gold_reward", 0),
-                )
-            )
-            await db.commit()
+        xp_reward = boss_def.get("xp_reward", 0)
+        gold_reward = boss_def.get("gold_reward", 0)
+
+        await services.player.update(user_id, xp=user["xp"] + xp_reward, gold=user["gold"] + gold_reward)
 
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💀 Боссы", callback_data="boss_menu")],

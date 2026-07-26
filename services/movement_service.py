@@ -49,12 +49,16 @@ class MovementService:
             if not loc:
                 return {"success": False, "message": "Эта область не существует... или ещё не открыта."}
 
-            if loc.is_secret and loc.discovered_by and loc.discovered_by != user_id:
-                if user["karma"] < (loc.required_karma or 0):
-                    return {"success": False, "message": "Туман не пускает тебя дальше..."}
+            if loc.is_secret:
+                if loc.discovered_by and loc.discovered_by != user_id:
+                    if user["karma"] < (loc.required_karma or 0):
+                        return {"success": False, "message": "Туман не пускает тебя дальше..."}
+                elif not loc.discovered_by:
+                    if user["karma"] < (loc.required_karma or 0):
+                        return {"success": False, "message": "Туман не пускает тебя дальше..."}
 
             connections = loc.connections if isinstance(loc.connections, list) else []
-            if user["current_location"] not in connections and target_location not in connections:
+            if user["current_location"] not in connections:
                 return {"success": False, "message": "Ты не можешь попасть отсюда напрямую."}
 
             night_encounter = False
@@ -173,6 +177,12 @@ class MovementService:
 
     async def pick_up_item(self, user_id: int, location_id: str, item_id: str) -> dict:
         async for db in get_db():
+            user = await self.user_service.get(user_id)
+            if not user:
+                return {"success": False, "message": "Пользователь не найден."}
+            if user["current_location"] != location_id:
+                return {"success": False, "message": "Ты не на этой локации."}
+
             stmt = select(GroundItemModel).where(
                 GroundItemModel.location_id == location_id,
                 GroundItemModel.item_id == item_id,

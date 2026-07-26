@@ -1,3 +1,4 @@
+import json
 import logging
 import random
 from sqlalchemy import select, text
@@ -77,8 +78,8 @@ class NPCQuestService:
                 description=quest_desc,
                 giver=npc.npc_id,
                 location=location_name,
-                objectives=[{"id": "main", "type": template["type"], "location": location_name, "target": 1, "description": quest_desc}],
-                rewards={"xp": template["reward_xp"], "gold": template["reward_gold"], "memories": 2},
+                objectives=json.dumps([{"id": "main", "type": template["type"], "location": location_name, "target": 1, "description": quest_desc}]),
+                rewards=json.dumps({"xp": template["reward_xp"], "gold": template["reward_gold"], "memories": 2}),
                 is_active=True,
                 is_repeating=True,
                 cooldown_hours=24,

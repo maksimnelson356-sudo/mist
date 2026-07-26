@@ -50,13 +50,13 @@ async def cb_quests(callback: CallbackQuery):
                     text += f"    {done} {obj['description']}: {p['current']}/{p['target']}\n"
 
     if available_here:
-        text += "\n<⚡> <b>Доступны здесь:</b>\n"
+        text += "\n⚡ <b>Доступны здесь:</b>\n"
         for q in available_here:
             text += f"  🌟 {q['name']}\n"
 
     remote = [q for q in all_available_quests if q["quest_id"] not in active_ids and q["quest_id"] not in available_quest_ids]
     if remote:
-        text += "\n<🗺️> <b>Другие квесты:</b>\n"
+        text += "\n🗺️ <b>Другие квесты:</b>\n"
         for q in remote:
             loc_name = LOC_NAMES.get(q["location"], q["location"])
             text += f"  🌍 {q['name']} <i>({loc_name})</i>\n"
@@ -144,7 +144,6 @@ async def cb_quests(callback: CallbackQuery):
 # -------------------------------------------------
 # Import визуальных ресурсов
 # -------------------------------------------------
-from services.visuals import send_visual
 
 
 @router.callback_query(F.data.startswith("accept:"))
@@ -164,6 +163,8 @@ async def cb_accept(callback: CallbackQuery):
 
     # Визуал: квест принят
     await send_visual(callback, key="quest_accept", caption="📜 Квест принят!")
+
+@router.callback_query(F.data.startswith("turnin:"))
 async def cb_turnin(callback: CallbackQuery):
     quest_id = callback.data.split(":")[1]
     result = await services.quest.complete(callback.from_user.id, quest_id)

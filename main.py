@@ -2,6 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.exceptions import TelegramBadRequest
 
 from config import BOT_TOKEN
 from database.base import init_db, close_db
@@ -73,6 +74,17 @@ async def main():
     dp.include_router(balance.router)
     dp.include_router(territory.router)
     dp.include_router(lang.router)
+
+    @dp.errors()
+    async def handle_errors(event):
+        exception = event.update.exception
+        if isinstance(exception, TelegramBadRequest) and "message is not modified" in str(exception):
+            return True
+        if isinstance(exception, TelegramBadRequest) and "message to edit not found" in str(exception):
+            return True
+        if isinstance(exception, TelegramBadRequest) and "query is too old" in str(exception):
+            return True
+        return False
 
     world_engine_task = asyncio.create_task(
         services.world_engine.start_loop(interval_seconds=900)

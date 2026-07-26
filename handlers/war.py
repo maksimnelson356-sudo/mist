@@ -36,14 +36,18 @@ async def cb_war_menu(callback: CallbackQuery):
 
     my_wars = [w for w in active if w["attacker"] == user_guild["guild_id"] or w["defender"] == user_guild["guild_id"]]
 
+    all_guilds = await services.guild.get_all(limit=100)
+    guild_names = {g["guild_id"]: g["name"] for g in all_guilds}
+
     if my_wars:
         text += "<b>Твои войны:</b>\n"
         for w in my_wars:
             is_attacker = w["attacker"] == user_guild["guild_id"]
-            enemy = w["defender"] if is_attacker else w["attacker"]
-            text += f"  ⚔️ vs {enemy} — {w['attacker_wins']}:{w['defender_wins']}\n"
+            enemy_id = w["defender"] if is_attacker else w["attacker"]
+            enemy_name = guild_names.get(enemy_id, enemy_id[:15])
+            text += f"  ⚔️ vs {enemy_name} — {w['attacker_wins']}:{w['defender_wins']}\n"
             buttons.append([InlineKeyboardButton(
-                text=f"⚔️ vs {enemy[:15]}",
+                text=f"⚔️ vs {enemy_name[:15]}",
                 callback_data=f"war_view:{w['id']}"
             )])
     else:
@@ -53,7 +57,9 @@ async def cb_war_menu(callback: CallbackQuery):
     if other_wars:
         text += "\n<b>Другие войны:</b>\n"
         for w in other_wars[:3]:
-            text += f"  {w['attacker']} vs {w['defender']} — {w['attacker_wins']}:{w['defender_wins']}\n"
+            atk_name = guild_names.get(w["attacker"], w["attacker"][:15])
+            def_name = guild_names.get(w["defender"], w["defender"][:15])
+            text += f"  {atk_name} vs {def_name} — {w['attacker_wins']}:{w['defender_wins']}\n"
 
     buttons.append([InlineKeyboardButton(text="📢 Объявить войну", callback_data="war_declare")])
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
@@ -111,12 +117,34 @@ async def cb_war_battle(callback: CallbackQuery):
     war_id = parts[1]
     side = parts[2]
 
+    user_id = callback.from_user.id
+    user_guild = await services.guild.get_user_guild(user_id)
+    if not user_guild:
+        await callback.answer("Ты не в гильдии.", show_alert=True)
+        return
+
+    active = await services.guild_war.get_active_wars()
+    war = next((w for w in active if w["id"] == war_id), None)
+    if not war:
+        await callback.answer("Война не найдена.", show_alert=True)
+        return
+
+    if side == "attacker" and war["attacker"] != user_guild["guild_id"]:
+        await callback.answer("Твоя гильдия не атакующая.", show_alert=True)
+        return
+    if side == "defender" and war["defender"] != user_guild["guild_id"]:
+        await callback.answer("Твоя гильдия не защитник.", show_alert=True)
+        return
+
     import random
-    winner = "attacker" if random.random() > 0.5 else "defender"
+    winner = side if random.random() > 0.35 else ("defender" if side == "attacker" else "attacker")
     result = await services.guild_war.resolve_battle(war_id, winner)
 
+    winner_name = "атакующие" if winner == "attacker" else "защитники"
     if result["success"]:
-        text = f"⚔️ <b>Битва завершена!</b>\n\nПобедитель: {winner}"
+        is_my_side = (side == winner)
+        emoji = "🏆" if is_my_side else "💀"
+        text = f"⚔️ <b>Битва завершена!</b>\n\n{emoji} Победитель: {winner_name}"
     else:
         text = f"❌ {result['message']}"
 
@@ -130,6 +158,23 @@ async def cb_war_battle(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("war_surrender:"))
 async def cb_war_surrender(callback: CallbackQuery):
     war_id = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+
+    user_guild = await services.guild.get_user_guild(user_id)
+    if not user_guild:
+        await callback.answer("Ты не в гильдии.", show_alert=True)
+        return
+
+    active = await services.guild_war.get_active_wars()
+    war = next((w for w in active if w["id"] == war_id), None)
+    if not war:
+        await callback.answer("Война не найдена.", show_alert=True)
+        return
+
+    if war["attacker"] != user_guild["guild_id"] and war["defender"] != user_guild["guild_id"]:
+        await callback.answer("Твоя гильдия не участвует в этой войне.", show_alert=True)
+        return
+
     result = await services.guild_war.end_war(war_id)
 
     if result["success"]:

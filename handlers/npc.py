@@ -127,3 +127,7 @@ async def cb_npc_heal(callback: CallbackQuery):
     result = await services.player.rest_heal(callback.from_user.id)
     await services.npc_memory.update(npc_id, callback.from_user.id, "helped")
     await callback.answer(result["message"], show_alert=True)
+    try:
+        await callback.message.edit_text(f"💚 {result['message']}")
+    except Exception:
+        pass

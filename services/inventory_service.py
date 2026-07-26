@@ -47,11 +47,12 @@ class InventoryService:
                 )
             break
 
-    async def remove(self, user_id: int, item_id: str, qty: int = 1) -> bool:
+    async def remove(self, user_id: int, item_id: str, qty: int = 1, is_magic: bool = False) -> bool:
         async for db in get_db():
             stmt = select(InventoryModel).where(
                 InventoryModel.user_id == user_id,
                 InventoryModel.item_id == item_id,
+                InventoryModel.is_magic == is_magic,
             )
             result = await db.execute(stmt)
             existing = result.scalar_one_or_none()
@@ -90,11 +91,12 @@ class InventoryService:
             return items
         return []
 
-    async def has(self, user_id: int, item_id: str, qty: int = 1) -> bool:
+    async def has(self, user_id: int, item_id: str, qty: int = 1, is_magic: bool = False) -> bool:
         async for db in get_db():
             stmt = select(InventoryModel).where(
                 InventoryModel.user_id == user_id,
                 InventoryModel.item_id == item_id,
+                InventoryModel.is_magic == is_magic,
             )
             result = await db.execute(stmt)
             row = result.scalar_one_or_none()

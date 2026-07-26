@@ -199,7 +199,8 @@ def _is_nearby(loc1: str, loc2: str) -> bool:
 @router.callback_query(F.data == "shop_seasonal")
 async def cb_shop_seasonal(callback: CallbackQuery):
     user = await services.player.get_or_create(callback.from_user.id)
-    season = services.world_engine.get_state().get("season", "spring")
+    state = services.world_engine.get_state()
+    season = state.get("season", "spring") if state else "spring"
 
     SEASON_NAMES = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
     SEASON_ICONS = {"spring": "🌸", "summer": "☀️", "autumn": "🍂", "winter": "❄️"}
@@ -228,7 +229,8 @@ async def cb_shop_buy_seasonal(callback: CallbackQuery):
     item_id = callback.data.split(":", 1)[1]
     user = await services.player.get_or_create(callback.from_user.id)
 
-    season = services.world_engine.get_state().get("season", "spring")
+    state = services.world_engine.get_state()
+    season = state.get("season", "spring") if state else "spring"
     items = await services.shop.get_seasonal_items(season)
     item = next((i for i in items if i["item_id"] == item_id), None)
 
@@ -240,17 +242,7 @@ async def cb_shop_buy_seasonal(callback: CallbackQuery):
         await callback.answer(f"Нужно {item['price']} 🪙, у тебя {user['gold']} 🪙", show_alert=True)
         return
 
-    from sqlalchemy import update
-    from database.base import get_db as _get_db
-    from database.models.user import UserModel
-
-    async for db in _get_db():
-        await db.execute(
-            update(UserModel).where(UserModel.user_id == callback.from_user.id).values(gold=user["gold"] - item["price"])
-        )
-        await db.commit()
-        break
-
+    await services.economy.remove(callback.from_user.id, "gold", item["price"])
     await services.inventory.add(callback.from_user.id, item_id)
 
     await callback.answer(f"✅ Купил «{item['name']}» за {item['price']} 🪙", show_alert=True)

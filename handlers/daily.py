@@ -75,9 +75,11 @@ async def cb_daily_quests(callback: CallbackQuery):
 
     completed_count = 0
     for q in quests:
-        done = q["completed"]
-        current = q["progress"]
-        target = q["objective"]
+        done = q["status"] == "completed"
+        progress = q["progress"]
+        current = progress.get("current", 0) if isinstance(progress, dict) else 0
+        objective = q["objective"]
+        target = objective.get("target", 1) if isinstance(objective, dict) else 1
 
         if done:
             completed_count += 1
