@@ -178,6 +178,7 @@ class WorldEngine:
         s = self._state
         old_day = s["game_day"]
         old_season = s["season"]
+        old_hour = s["game_hour"]
 
         s["game_minute"] += game_minutes
         while s["game_minute"] >= 60:
@@ -191,6 +192,8 @@ class WorldEngine:
         new_day = s["game_day"]
         if new_day > old_day:
             await self._on_new_day(old_day, new_day)
+        elif s["game_hour"] != old_hour:
+            await self._on_hour_change(old_hour, s["game_hour"])
 
         new_season = SEASONS[((s["game_day"] - 1) // DAYS_PER_SEASON) % 4]
         if new_season != old_season:
@@ -258,6 +261,19 @@ class WorldEngine:
                 f"День {new_day} — тишина. Ничего особенного не произошло.",
                 importance=Importance.TRIVIAL,
             )
+
+    async def _on_hour_change(self, old_hour: int, new_hour: int):
+        if self.npc_life:
+            try:
+                await self.npc_life._process_npc_goals(new_hour)
+            except Exception as e:
+                logger.warning(f"Hourly NPC goals error: {e}")
+
+        if self.ecosystem:
+            try:
+                await self.ecosystem.tick_creature_population(new_hour)
+            except Exception as e:
+                logger.warning(f"Hourly ecosystem tick error: {e}")
 
     async def _generate_world_events(self, current_day: int) -> int:
         regions = {}
