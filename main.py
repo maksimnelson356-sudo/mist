@@ -84,6 +84,7 @@ async def main():
             exception = event.update.exception if event.update else event.exception
         except Exception:
             exception = getattr(event, "exception", None)
+        logger.error(f"[ERROR_HANDLER] type={type(exception).__name__}: {exception}", exc_info=exception)
         if isinstance(exception, TelegramBadRequest):
             msg = str(exception)
             if "message is not modified" in msg:

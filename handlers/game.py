@@ -225,9 +225,18 @@ async def cb_revive(callback: CallbackQuery):
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
     logger.info(f"[MENU] START user={callback.from_user.id}")
-    user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
-    logger.info(f"[MENU] user fetched alive={user.get('is_alive')} loc={user.get('current_location')}")
-    await services.player.update_last_seen(callback.from_user.id)
+    try:
+        user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
+    except Exception as e:
+        logger.error(f"[MENU] A FAILED: {type(e).__name__}: {e}")
+        raise
+    logger.info(f"[MENU] A ok alive={user.get('is_alive')} loc={user.get('current_location')}")
+    try:
+        await services.player.update_last_seen(callback.from_user.id)
+    except Exception as e:
+        logger.error(f"[MENU] B FAILED: {type(e).__name__}: {e}")
+        raise
+    logger.info("[MENU] B ok")
 
     if not user["is_alive"]:
         text = "<pre>💀\n🕯️👁🕯️\n💀</pre>\n💀 <b>Ты мёртв.</b>\n\nТуман накрыл тебя."
@@ -237,7 +246,12 @@ async def cb_main_menu(callback: CallbackQuery):
         await callback.message.edit_text(text, reply_markup=kb)
         return
 
-    catchup = await services.player.get_catchup_summary(callback.from_user.id)
+    try:
+        catchup = await services.player.get_catchup_summary(callback.from_user.id)
+    except Exception as e:
+        logger.error(f"[MENU] C FAILED: {type(e).__name__}: {e}")
+        raise
+    logger.info(f"[MENU] C ok catchup={'yes' if catchup else 'no'}")
 
     if catchup and catchup.get("hunger_loss", 0) > 0:
         new_hunger = catchup["new_hunger"]
@@ -252,9 +266,15 @@ async def cb_main_menu(callback: CallbackQuery):
             break
         user["hunger"] = new_hunger
 
-    loc = await services.movement.get_location(user["current_location"])
+    try:
+        loc = await services.movement.get_location(user["current_location"])
+    except Exception as e:
+        logger.error(f"[MENU] D FAILED: {type(e).__name__}: {e}")
+        raise
     loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
+    logger.info(f"[MENU] D ok loc_name={loc_name}")
+
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
@@ -279,8 +299,8 @@ async def cb_main_menu(callback: CallbackQuery):
                 bonus_text.append("💚 Бесплатное лечение")
             if bonus_text:
                 text += f"📜 Сегодня: {' | '.join(bonus_text)}\n"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MENU] E daily_bonuses: {type(e).__name__}: {e}")
 
     try:
         seasonal_rewards = await services.seasonal_event.get_active_seasonal_rewards()
@@ -292,8 +312,10 @@ async def cb_main_menu(callback: CallbackQuery):
                 sr_text.append(f"+{int((seasonal_rewards['gold_bonus'] - 1) * 100)}% золота")
             if sr_text:
                 text += f"🌿 Сезон: {' | '.join(sr_text)}\n"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MENU] F seasonal: {type(e).__name__}: {e}")
+
+    logger.info("[MENU] G before catchup block")
 
     if catchup:
         season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
@@ -316,6 +338,8 @@ async def cb_main_menu(callback: CallbackQuery):
             text += f"\n📍 Локация: {loc_data['name']}\n"
             text += f"  ⚠️ Опасность: {loc_data['danger_level']} | 🍖 Еда: {loc_data['food_supply']}\n"
         text += "\n"
+
+    logger.info("[MENU] H after catchup block")
 
     text += (
         f"📍 <b>{loc_name}</b>\n"
