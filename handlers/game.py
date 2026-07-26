@@ -239,6 +239,19 @@ async def cb_main_menu(callback: CallbackQuery):
 
     catchup = await services.player.get_catchup_summary(callback.from_user.id)
 
+    if catchup and catchup.get("hunger_loss", 0) > 0:
+        new_hunger = catchup["new_hunger"]
+        from sqlalchemy import update as sa_update
+        from database.base import get_db
+        from database.models.user import UserModel
+        async for db in get_db():
+            await db.execute(
+                sa_update(UserModel).where(UserModel.user_id == callback.from_user.id).values(hunger=new_hunger)
+            )
+            await db.commit()
+            break
+        user["hunger"] = new_hunger
+
     loc = await services.movement.get_location(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
@@ -248,7 +261,7 @@ async def cb_main_menu(callback: CallbackQuery):
     if catchup:
         season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
         season = season_names.get(catchup["season"], catchup["season"])
-        text += f"⏰ <b>Пока тебя не было: {catchup['game_days_away']} дн.</b>\n"
+        text += f"⏰ <b>Пока тебя не было: {catchup['game_days_away']} дн. ({catchup['hours_away']} ч.)</b>\n"
         text += f"🌍 Мир: День {catchup['world_day']}, {season}\n"
 
         if catchup.get("events"):
@@ -257,6 +270,9 @@ async def cb_main_menu(callback: CallbackQuery):
                 text += f"  📜 {ev['name']}\n"
         else:
             text += "\nНичего особенного не случилось.\n"
+
+        if catchup.get("hunger_loss", 0) > 0:
+            text += f"\n🍖 Голод: -{catchup['hunger_loss']} (было {user.get('hunger', 100)}, стало {catchup['new_hunger']})\n"
 
         if catchup.get("location"):
             loc_data = catchup["location"]

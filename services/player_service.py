@@ -70,7 +70,6 @@ class PlayerService:
         if not user or not user.get("last_seen"):
             return None
 
-        from services.world_engine import WorldEngine
         async for db in get_db():
             result = await db.execute(
                 select(UserModel).where(UserModel.user_id == user_id)
@@ -83,7 +82,6 @@ class PlayerService:
             if last_seen is None:
                 return None
 
-            from datetime import datetime
             now = datetime.utcnow()
             diff = now - last_seen
             hours_away = diff.total_seconds() / 3600
@@ -91,7 +89,9 @@ class PlayerService:
             if hours_away < 24:
                 return None
 
-            game_days_away = max(1, int(hours_away / 24))
+            from services.world_engine import TIME_SCALE
+            game_hours_away = hours_away * TIME_SCALE / 60
+            game_days_away = max(1, int(game_hours_away / 24))
 
             result = await db.execute(
                 text("SELECT game_day, season, world_pressure, prosperity, chaos "
@@ -117,6 +117,9 @@ class PlayerService:
             )
             loc = result.mappings().first()
 
+            hunger_loss = min(user.get("hunger", 100), game_days_away * 5)
+            new_hunger = max(0, user.get("hunger", 100) - hunger_loss)
+
             return {
                 "hours_away": int(hours_away),
                 "game_days_away": game_days_away,
@@ -125,6 +128,8 @@ class PlayerService:
                 "world_pressure": world["world_pressure"],
                 "events": events,
                 "location": dict(loc) if loc else None,
+                "hunger_loss": hunger_loss,
+                "new_hunger": new_hunger,
             }
 
     async def revive(self, user_id: int) -> dict:
