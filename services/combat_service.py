@@ -256,6 +256,8 @@ class CombatService:
                 result_log["outcome"] = "victory"
                 result_log["xp_gained"] = creature["xp_reward"]
 
+                gold_reward = random.randint(2, creature["xp_reward"] // 5 + 3)
+
                 try:
                     from services.npc_life_engine import get_xp_multiplier
                     xp_mult = await get_xp_multiplier(user_id)
@@ -287,8 +289,7 @@ class CombatService:
                         await self._add_item(user_id, loot_item["item_id"], loot_item.get("qty", 1), db)
                         result_log["loot"].append(loot_item["item_id"])
 
-                gold_reward = random.randint(2, creature["xp_reward"] // 5 + 3)
-                new_xp = user["xp"] + creature["xp_reward"]
+                new_xp = user["xp"] + result_log["xp_gained"]
                 new_level = user["level"]
                 xp_needed = new_level * 100
                 leveled = False

@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from sqlalchemy.sql import func
 
 from database.base import get_db
