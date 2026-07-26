@@ -211,6 +211,7 @@ class WorldEngine:
 
         if self.guild_territory:
             await self.guild_territory.recalculate_territory_bonus()
+            await self.guild_territory.tick_territory_income()
 
         if self.home_service:
             await self.home_service.tick_homes(self._state["game_hour"], self._state["season"])
