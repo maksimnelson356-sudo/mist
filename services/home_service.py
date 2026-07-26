@@ -251,25 +251,22 @@ class HomeService:
 
             for home in homes:
                 new_condition = home.condition
-                if home.condition < 50:
-                    new_condition = min(100, home.condition + 1)
+                if home.condition > 30:
+                    new_condition = max(0, home.condition - 1)
+                elif home.condition > 0:
+                    new_condition = max(0, home.condition - 2)
 
                 new_mood = "calm"
                 if game_hour >= 22 or game_hour <= 5:
                     new_mood = "sleepy"
                 elif season == "winter" and home.condition < 60:
                     new_mood = "scared"
+                elif home.condition < 30:
+                    new_mood = "hungry"
 
-                income = home.income_per_day
-                rooms = home.get("rooms", [])
-                for room in rooms:
-                    if room.get("type") == "garden":
-                        if season in ("spring", "summer"):
-                            income += 5
-                        elif season == "autumn":
-                            income += 10
+                income = self._calc_income(home, season)
 
-                if income > 0:
+                if income > 0 and home.condition >= 30:
                     user_result = await db.execute(
                         select(UserModel).where(UserModel.user_id == home.owner_id)
                     )
@@ -289,6 +286,31 @@ class HomeService:
                 )
 
             await db.commit()
+
+    @staticmethod
+    def _calc_income(home, season: str) -> int:
+        type_def = HOME_TYPES.get(home.home_type, HOME_TYPES["hut"])
+        base = type_def["base_comfort"] // 5
+        level_bonus = home.level * 2
+        rooms = home.get("rooms", []) or []
+        room_income = 0
+        garden_bonus = 0
+        for room in rooms:
+            rtype = room.get("type", "")
+            if rtype == "kitchen":
+                room_income += 5
+            elif rtype == "garden":
+                if season in ("spring", "summer"):
+                    garden_bonus += 5
+                elif season == "autumn":
+                    garden_bonus += 10
+                else:
+                    garden_bonus += 2
+            elif rtype == "workshop":
+                room_income += 8
+            elif rtype == "library":
+                room_income += 3
+        return base + level_bonus + room_income + garden_bonus
 
     @staticmethod
     def _to_dict(row: PlayerHomeModel) -> dict:
