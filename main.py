@@ -13,6 +13,7 @@ from handlers import (
     market, leaderboard, guild_ext, npc_trade, npc_quests, catalog, balance,
     territory, lang,
 )
+from middleware import CallbackAnswerMiddleware
 from services.container import services
 
 logging.basicConfig(level=logging.INFO)
@@ -75,15 +76,22 @@ async def main():
     dp.include_router(territory.router)
     dp.include_router(lang.router)
 
+    dp.callback_query.middleware(CallbackAnswerMiddleware())
+
     @dp.errors()
     async def handle_errors(event):
-        exception = event.update.exception
-        if isinstance(exception, TelegramBadRequest) and "message is not modified" in str(exception):
-            return True
-        if isinstance(exception, TelegramBadRequest) and "message to edit not found" in str(exception):
-            return True
-        if isinstance(exception, TelegramBadRequest) and "query is too old" in str(exception):
-            return True
+        try:
+            exception = event.update.exception if event.update else event.exception
+        except Exception:
+            exception = getattr(event, "exception", None)
+        if isinstance(exception, TelegramBadRequest):
+            msg = str(exception)
+            if "message is not modified" in msg:
+                return True
+            if "message to edit not found" in msg:
+                return True
+            if "query is too old" in msg:
+                return True
         return False
 
     world_engine_task = asyncio.create_task(
