@@ -1,4 +1,5 @@
 import json
+import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import CommandStart
@@ -6,6 +7,7 @@ from services.container import services
 from scenes import LOC_SCENES, CREATURE_SCENES, SCENE_DIVIDER
 
 router = Router()
+logger = logging.getLogger("MIST.game")
 
 
 def is_my_message(message: Message, bot_username: str) -> bool:
@@ -222,7 +224,9 @@ async def cb_revive(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=kb)
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
+    logger.info(f"[MENU] START user={callback.from_user.id}")
     user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
+    logger.info(f"[MENU] user fetched alive={user.get('is_alive')} loc={user.get('current_location')}")
     await services.player.update_last_seen(callback.from_user.id)
 
     if not user["is_alive"]:
@@ -319,10 +323,14 @@ async def cb_main_menu(callback: CallbackQuery):
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
     )
+    logger.info(f"[MENU] text len={len(text)}, calling edit_text")
     try:
         await callback.message.edit_text(text, reply_markup=main_menu_kb())
-    except Exception:
+        logger.info("[MENU] edit_text SUCCESS")
+    except Exception as e:
+        logger.warning(f"[MENU] edit_text FAILED: {type(e).__name__}: {e}")
         await callback.message.answer(text, reply_markup=main_menu_kb())
+        logger.info("[MENU] fallback answer sent")
 
 
 # ──────────────────────────────────────────────

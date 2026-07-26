@@ -1,17 +1,14 @@
+import logging
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery
 
+logger = logging.getLogger("MIST.middleware")
+
 
 class CallbackAnswerMiddleware(BaseMiddleware):
-    """Auto-answer every callback query before the handler runs.
-
-    This prevents the loading spinner from getting stuck when a handler
-    raises an exception before calling callback.answer() (e.g. edit_text
-    fails with MessageNotModified). callback.answer() is idempotent in
-    aiogram 3 — handlers can still call it again for show_alert messages.
-    """
+    """Auto-answer every callback query before the handler runs."""
 
     async def __call__(
         self,
@@ -19,8 +16,11 @@ class CallbackAnswerMiddleware(BaseMiddleware):
         event: CallbackQuery,
         data: dict[str, Any],
     ) -> Any:
+        logger.info(f"[MW] callback answer: data={event.data} user={event.from_user.id}")
         try:
             await event.answer()
-        except Exception:
-            pass
-        return await handler(event, data)
+        except Exception as e:
+            logger.warning(f"[MW] answer failed: {e}")
+        result = await handler(event, data)
+        logger.info(f"[MW] handler done: data={event.data}")
+        return result
