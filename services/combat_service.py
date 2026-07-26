@@ -3,8 +3,6 @@ import logging
 import random
 from datetime import UTC, datetime
 
-logger = logging.getLogger(__name__)
-
 from sqlalchemy import delete, select, update
 
 from database.base import get_db
@@ -14,6 +12,8 @@ from database.models.inventory import InventoryModel, UserEquipmentModel, UserSt
 from database.models.location import LocationModel
 from database.models.user import UserModel
 from domain.events import EventType, Importance
+
+logger = logging.getLogger(__name__)
 
 WEATHER_COMBAT_EFFECTS = {
     "clear": {"attack_mod": 0, "defense_mod": 0, "description": ""},
@@ -159,13 +159,10 @@ class CombatService:
             logger.warning(f"Time modifier error: {e}", exc_info=True)
 
         hunger = user.get("hunger", 100)
-        hunger_penalty = ""
         if hunger <= 0:
             effective_attack = int(effective_attack * 0.8)
-            hunger_penalty = " (-20% атк от голода)"
         elif hunger < 20:
             effective_attack = int(effective_attack * 0.9)
-            hunger_penalty = " (-10% атк от голода)"
 
         creature_spawn = creature.get("spawn_data", {})
         is_boss = creature_spawn.get("is_boss", False)

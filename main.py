@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 
 from aiogram import Bot, Dispatcher
@@ -136,10 +137,8 @@ async def main():
     finally:
         services.world_engine.stop()
         world_engine_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await world_engine_task
-        except asyncio.CancelledError:
-            pass
         await close_db()
         logger.info("MIST закрыт.")
 

@@ -22,7 +22,7 @@ async def cb_leaderboard_menu(callback: CallbackQuery):
 
     text = "🏆 <b>Таблица лидеров</b>\n\n"
     text += "<b>Твоя позиция:</b>\n"
-    for board_type, info in summary.items():
+    for _board_type, info in summary.items():
         text += f"{info['icon']} {info['name']}: #{info['rank']}/{info['total']} ({info['value']})\n"
 
     buttons = []

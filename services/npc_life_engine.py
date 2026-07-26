@@ -360,8 +360,7 @@ class NPCLifeEngine:
 
     def _get_relation_type(self, value: int) -> str:
         for rtype, rdef in RELATION_TYPES.items():
-            if "min" in rdef and "max" in rdef:
-                if rdef["min"] <= value <= rdef["max"]:
+            if "min" in rdef and "max" in rdef and rdef["min"] <= value <= rdef["max"]:
                     return rtype
         return "neutral"
 

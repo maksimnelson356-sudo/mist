@@ -188,7 +188,7 @@ class PvPService:
                 CombatLogModel.result == "victory",
             )
             result = await db.execute(stmt)
-            total_pvp_wins = result.scalar()
+            _ = result.scalar()
 
             stmt2 = select(func.count()).select_from(CombatLogModel).where(
                 CombatLogModel.user_id == user_id,

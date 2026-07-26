@@ -26,7 +26,7 @@ async def cb_dialogue_start(callback: CallbackQuery):
     text = f"{icon} <b>{npc['name']}</b>\n\n{dialogue['text']}"
 
     buttons = []
-    for i, opt in enumerate(dialogue.get("options", [])):
+    for _i, opt in enumerate(dialogue.get("options", [])):
         buttons.append([InlineKeyboardButton(
             text=opt["text"],
             callback_data=f"dialogue:{npc_type}:{opt.get('next', 'end')}:{npc_id}"

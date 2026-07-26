@@ -199,7 +199,6 @@ class ArtifactService:
 
     def _evolve_lore(self, artifact: dict, times_used: int, kills: int, saves: int, action: str) -> str:
         base_lore = artifact.get("lore", "")
-        name = artifact.get("name", "")
 
         additions = []
         if times_used == 1:

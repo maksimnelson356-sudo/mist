@@ -107,8 +107,7 @@ class WorldEventSystem:
 
     def has_active_event(self, event_type: str, region_id: str = None) -> bool:
         for e in self._active_events:
-            if e.event_type == event_type:
-                if region_id is None or e.region_id == region_id or e.region_id is None:
+            if e.event_type == event_type and (region_id is None or e.region_id == region_id or e.region_id is None):
                     return True
         return False
 

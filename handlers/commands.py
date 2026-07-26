@@ -90,7 +90,7 @@ async def cmd_help(message: Message):
         text += f"  • <code>/{cmd}</code> — {desc}\n"
 
     text += "\n<b>Примеры использования:</b>\n"
-    for cmd, example in COMMANDS_EXAMPLES.items():
+    for _cmd, example in COMMANDS_EXAMPLES.items():
         text += f"  {example}\n"
 
     text += "\n<b>Дополнительные возможности:</b>\n"
@@ -456,7 +456,7 @@ async def cb_commands(callback: CallbackQuery):
         text += f"  • <code>/{cmd}</code> — {desc}\n"
 
     text += "\n<b>Примеры использования:</b>\n"
-    for cmd, example in COMMANDS_EXAMPLES.items():
+    for _cmd, example in COMMANDS_EXAMPLES.items():
         text += f"  {example}\n"
 
     text += "\n<b>Дополнительные возможности:</b>\n"

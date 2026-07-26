@@ -138,8 +138,8 @@ class EcosystemService:
                         counts["total"] -= 1
                         logger.info(f"Цепь питания: {carnivore['creature_id']} съел {prey['creature_id']} в {loc}")
 
-            if not herbivores and counts.get("herbivore", 0) == 0 and counts["total"] < 8:
-                if random.random() < 0.40:
+            if (not herbivores and counts.get("herbivore", 0) == 0 and counts["total"] < 8
+                    and random.random() < 0.40):
                     await self._spawn_creatures(db, loc, 1, "clear", 12)
                     logger.info(f"Цепь питания: травоядные вымерли в {loc}, спавн нового")
 

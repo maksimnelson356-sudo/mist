@@ -4,7 +4,6 @@ from sqlalchemy import select, update
 
 from database.base import get_db
 from database.models.crafting import CraftingRecipeModel, UserCraftingModel
-from database.models.inventory import InventoryModel
 from database.models.location import LocationModel
 from database.models.user import UserModel
 from domain.events import EventType, Importance
@@ -23,7 +22,7 @@ class CraftingService:
             if location:
                 stmt = stmt.where(
                     (CraftingRecipeModel.required_location == location) |
-                    (CraftingRecipeModel.required_location == None)
+                    (CraftingRecipeModel.required_location.is_(None))
                 )
             result = await db.execute(stmt)
             rows = result.scalars().all()
@@ -54,10 +53,6 @@ class CraftingService:
             for ing in ingredients:
                 has = await self.inventory.has(user_id, ing["item_id"], ing.get("qty", 1))
                 if not has:
-                    t_stmt = select(InventoryModel).where(
-                        InventoryModel.user_id == user_id,
-                        InventoryModel.item_id == ing["item_id"],
-                    )
                     return {"success": False, "message": f"Не хватает: {ing['item_id']} x{ing.get('qty', 1)}"}
 
             for ing in ingredients:

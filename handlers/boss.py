@@ -98,12 +98,12 @@ async def cb_boss_fight(callback: CallbackQuery):
         )
 
         loot = boss_def.get("loot_table", [])
-        dropped = [l for l in loot if random.random() < l.get("chance", 0.5)]
+        dropped = [entry for entry in loot if random.random() < entry.get("chance", 0.5)]
         if dropped:
             text += "\n\n📦 <b>Лут:</b>\n"
-            for l in dropped:
-                await services.inventory.add(user_id, l["item"], l.get("qty", 1))
-                text += f"  • {l['item']} x{l['qty']}\n"
+            for entry in dropped:
+                await services.inventory.add(user_id, entry["item"], entry.get("qty", 1))
+                text += f"  • {entry['item']} x{entry['qty']}\n"
 
         xp_reward = boss_def.get("xp_reward", 0)
         gold_reward = boss_def.get("gold_reward", 0)

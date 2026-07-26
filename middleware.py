@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -17,8 +18,6 @@ class CallbackAnswerMiddleware(BaseMiddleware):
         event: CallbackQuery,
         data: dict[str, Any],
     ) -> Any:
-        try:
+        with contextlib.suppress(Exception):
             await event.answer()
-        except Exception:
-            pass
         return await handler(event, data)

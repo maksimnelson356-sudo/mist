@@ -97,7 +97,7 @@ class ChronicleService:
         deleted = 0
         async for db in get_db():
             stmt = select(ChronicleEventModel).where(
-                ChronicleEventModel.expires_at != None,
+                ChronicleEventModel.expires_at.isnot(None),
                 ChronicleEventModel.expires_at <= now,
             )
             result = await db.execute(stmt)

@@ -75,11 +75,13 @@ def test_complete_all_objectives_met(quest_service):
         mock_session.execute = mock_execute
         mock_session.commit = AsyncMock()
 
-        with patch("services.quest_service.get_db", return_value=_mock_get_db(mock_session)()):
-            with patch("services.container.services") as mock_svc:
-                mock_svc.analytics = MagicMock()
-                mock_svc.analytics.track = AsyncMock()
-                return await quest_service.complete(123, "q1")
+        with (
+            patch("services.quest_service.get_db", return_value=_mock_get_db(mock_session)()),
+            patch("services.container.services") as mock_svc,
+        ):
+            mock_svc.analytics = MagicMock()
+            mock_svc.analytics.track = AsyncMock()
+            return await quest_service.complete(123, "q1")
 
     result = asyncio.run(run())
     assert result["success"] is True

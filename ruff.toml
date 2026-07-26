@@ -13,6 +13,7 @@ select = [
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "E712",   # true-false-comparison (SQLAlchemy .where() pattern)
     "B008",   # function call in default argument (aiogram pattern)
     "SIM108", # ternary operator (readability preference)
 ]

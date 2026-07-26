@@ -49,7 +49,6 @@ class ShopService:
                     break
 
                 food = row.get("food_supply", 50)
-                wealth = row.get("wealth", 30)
                 danger = row.get("danger_level", 30)
 
                 if item_id in self.FOOD_ITEMS:

@@ -19,7 +19,6 @@ async def cb_profile(callback: CallbackQuery):
 
     world_state = services.world_engine.get_state()
     game_hour = world_state["game_hour"] if world_state else 8
-    season = world_state["season"] if world_state else "spring"
 
     period = "morning"
     for p, info in TIME_PERIODS.items():

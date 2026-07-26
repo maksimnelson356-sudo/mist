@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     COMBAT_VICTORY = "combat_victory"
     COMBAT_DEFEAT = "combat_defeat"
     COMBAT_DRAW = "combat_draw"
@@ -45,7 +45,7 @@ class EventType(str, Enum):
     GUILD_ROLE_CHANGED = "guild_role_changed"
 
 
-class Importance(str, Enum):
+class Importance(StrEnum):
     TRIVIAL = "trivial"
     COMMON = "common"
     NOTABLE = "notable"

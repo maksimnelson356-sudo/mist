@@ -1,3 +1,5 @@
+import contextlib
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -123,7 +125,5 @@ async def cb_npc_heal(callback: CallbackQuery):
     result = await services.player.rest_heal(callback.from_user.id)
     await services.npc_memory.update(npc_id, callback.from_user.id, "helped")
     await callback.answer(result["message"], show_alert=True)
-    try:
+    with contextlib.suppress(Exception):
         await callback.message.edit_text(f"💚 {result['message']}")
-    except Exception:
-        pass

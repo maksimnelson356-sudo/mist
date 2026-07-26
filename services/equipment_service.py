@@ -125,7 +125,7 @@ class EquipmentService:
     async def get_bonuses(self, user_id: int) -> dict:
         equip = await self.get_equipment(user_id)
         bonuses = {"attack": 0, "defense": 0, "max_hp": 0}
-        for slot, item in equip.items():
+        for _slot, item in equip.items():
             stats = item.get("stats", {})
             bonuses["attack"] += stats.get("attack", 0)
             bonuses["defense"] += stats.get("defense", 0)

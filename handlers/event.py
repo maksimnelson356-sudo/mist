@@ -33,7 +33,6 @@ async def cb_event_menu(callback: CallbackQuery):
     else:
         text += f"<b>Активных событий: {len(active_events)}</b>\n\n"
         for ev in active_events[:10]:
-            icon = ev.get("name", "")[:1]
             days_left = ev.get("end_day")
             if days_left:
                 text += f"• {ev['name']} — осталось {days_left} дн.\n"
