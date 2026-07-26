@@ -2,7 +2,7 @@ import json
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import CommandStart
-import game_engine as ge
+from services.container import services
 from scenes import LOC_SCENES, CREATURE_SCENES, SCENE_DIVIDER
 
 router = Router()
@@ -22,7 +22,7 @@ def is_my_message(message: Message, bot_username: str) -> bool:
 
 
 async def _loc_name(loc_id: str) -> str:
-    loc = await ge.get_location(loc_id)
+    loc = await services.movement.get_location(loc_id)
     return loc["name"] if loc else loc_id
 
 
@@ -35,15 +35,30 @@ def main_menu_kb():
         [InlineKeyboardButton(text="⚔️ Бой", callback_data="fight_menu")],
         [InlineKeyboardButton(text="📜 Квесты", callback_data="quests")],
         [InlineKeyboardButton(text="💚 Исцелиться", callback_data="heal")],
+        [InlineKeyboardButton(text="🍖 Поесть", callback_data="eat_food")],
         [InlineKeyboardButton(text="🎒 Инвентарь", callback_data="inventory")],
         [InlineKeyboardButton(text="🛒 Магазин", callback_data="shop")],
+        [InlineKeyboardButton(text="📊 Рынок", callback_data="market_menu")],
         [InlineKeyboardButton(text="⚒️ Крафт", callback_data="crafting_menu")],
         [InlineKeyboardButton(text="🤝 Трейдинг", callback_data="trade_menu")],
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
         [InlineKeyboardButton(text="🛡️ Снаряжение", callback_data="equipment_menu")],
-        [InlineKeyboardButton(text="👤 Статус", callback_data="status")],
+        [InlineKeyboardButton(text="🏠 Дом", callback_data="home_menu")],
+        [InlineKeyboardButton(text="🏺 Артефакты", callback_data="artifact_menu")],
+        [InlineKeyboardButton(text="💀 Боссы", callback_data="boss_menu")],
+        [InlineKeyboardButton(text="🐉 Рейды", callback_data="raid_menu")],
+        [InlineKeyboardButton(text="🎭 События", callback_data="event_menu")],
+        [InlineKeyboardButton(text="⚔️ Войны", callback_data="war_menu")],
+        [InlineKeyboardButton(text="👤 Профиль", callback_data="profile")],
+        [InlineKeyboardButton(text="💰 Баланс", callback_data="balance_menu")],
+        [InlineKeyboardButton(text="📖 Каталог", callback_data="catalog_menu")],
+        [InlineKeyboardButton(text="📜 Хроника", callback_data="world_chronicle")],
+        [InlineKeyboardButton(text="📅 Награды дня", callback_data="daily_menu")],
+        [InlineKeyboardButton(text="⚔️ Класс", callback_data="class_menu")],
+        [InlineKeyboardButton(text="🏴 Фракции", callback_data="faction_menu")],
         [InlineKeyboardButton(text="🔮 Шёпот тумана", callback_data="whisper")],
         [InlineKeyboardButton(text="🏆 Энциклопедия", callback_data="legends")],
+        [InlineKeyboardButton(text="📊 Лидерборды", callback_data="leaderboard_menu")],
         [InlineKeyboardButton(text="⚔️ PvP Арена", callback_data="pvp_menu")],
         [InlineKeyboardButton(text="🤖 Команды", callback_data="commands")],
     ])
@@ -130,7 +145,7 @@ async def cmd_start(message: Message, bot_username: str):
         )
         return
 
-    user = await ge.get_or_create_user(message.from_user.id, message.from_user.username)
+    user = await services.player.get_or_create(message.from_user.id, message.from_user.username)
 
     if not user["is_alive"]:
         text = (
@@ -145,7 +160,8 @@ async def cmd_start(message: Message, bot_username: str):
         await message.answer(text, reply_markup=kb)
         return
 
-    loc = await ge.get_location(user["current_location"])
+    loc = await services.movement.get_location(user["current_location"])
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
     if scene:
@@ -155,9 +171,11 @@ async def cmd_start(message: Message, bot_username: str):
         "Ты просыпаешься в тумане.\n"
         "Не помнишь, как сюда попал.\n\n"
         "Туман помнит всё.\n\n"
-        f"📍 <b>{loc['name']}</b>\n"
+        f"📍 <b>{loc_name}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
-        f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}"
+        f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
+        f"🪙 Золото: {user['gold']} | 🎒 Воспоминаний: {user['memories']}\n\n"
+        "<i>Нажми 🔍 Осмотреться чтобы увидеть выходы</i>"
     )
     await message.answer(text, reply_markup=main_menu_kb())
 
@@ -191,11 +209,12 @@ async def group_mention(message: Message, bot_username: str):
 
 @router.callback_query(F.data == "revive")
 async def cb_revive(callback: CallbackQuery):
-    result = await ge.revive_user(callback.from_user.id)
+    result = await services.player.revive(callback.from_user.id)
     if result["success"]:
-        user = await ge.get_or_create_user(callback.from_user.id)
-        loc = await ge.get_location(user["current_location"])
-        text = result["message"] + f"\n\n📍 <b>{loc['name']}</b>"
+        user = await services.player.get_or_create(callback.from_user.id)
+        loc = await services.movement.get_location(user["current_location"])
+        loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
+        text = result["message"] + f"\n\n📍 <b>{loc_name}</b>"
         kb = main_menu_kb()
     else:
         text = result["message"]
@@ -206,7 +225,8 @@ async def cb_revive(callback: CallbackQuery):
 
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id, callback.from_user.username)
+    user = await services.player.get_or_create(callback.from_user.id, callback.from_user.username)
+    await services.player.update_last_seen(callback.from_user.id)
 
     if not user["is_alive"]:
         text = "<pre>💀\n🕯️👁🕯️\n💀</pre>\n💀 <b>Ты мёртв.</b>\n\nТуман накрыл тебя."
@@ -217,14 +237,37 @@ async def cb_main_menu(callback: CallbackQuery):
         await callback.answer()
         return
 
-    loc = await ge.get_location(user["current_location"])
+    catchup = await services.player.get_catchup_summary(callback.from_user.id)
+
+    loc = await services.movement.get_location(user["current_location"])
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
+
+    if catchup:
+        season_names = {"spring": "Весна", "summer": "Лето", "autumn": "Осень", "winter": "Зима"}
+        season = season_names.get(catchup["season"], catchup["season"])
+        text += f"⏰ <b>Пока тебя не было: {catchup['game_days_away']} дн.</b>\n"
+        text += f"🌍 Мир: День {catchup['world_day']}, {season}\n"
+
+        if catchup.get("events"):
+            text += "\n<b>Что произошло:</b>\n"
+            for ev in catchup["events"][:5]:
+                text += f"  📜 {ev['name']}\n"
+        else:
+            text += "\nНичего особенного не случилось.\n"
+
+        if catchup.get("location"):
+            loc_data = catchup["location"]
+            text += f"\n📍 Локация: {loc_data['name']}\n"
+            text += f"  ⚠️ Опасность: {loc_data['danger_level']} | 🍖 Еда: {loc_data['food_supply']}\n"
+        text += "\n"
+
     text += (
-        f"📍 <b>{loc['name']}</b>\n"
+        f"📍 <b>{loc_name}</b>\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']} | ⭐ Ур. {user['level']}\n"
+        f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
     )
     await callback.message.edit_text(text, reply_markup=main_menu_kb())
@@ -237,22 +280,28 @@ async def cb_main_menu(callback: CallbackQuery):
 
 @router.callback_query(F.data == "look")
 async def cb_look(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
     if not user["is_alive"]:
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ]))
         await callback.answer()
         return
-    loc = await ge.get_location(user["current_location"])
-    creatures = await ge.get_creatures_at_location(user["current_location"])
-    ground = await ge.get_ground_items(user["current_location"])
+    loc = await services.movement.get_location(user["current_location"])
+    creatures = await services.movement.get_creatures_at(user["current_location"])
+    ground = await services.movement.get_ground_items(user["current_location"])
 
     scene = LOC_SCENES.get(user["current_location"], "")
     text = ""
     if scene:
         text += f"<pre>{scene}</pre>\n{SCENE_DIVIDER}\n"
-    text += f"🌍 <b>{loc['name']}</b>\n\n{loc['description']}\n"
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
+    text += f"🌍 <b>{loc_name}</b>\n\n{loc.get('description', '') if loc else ''}\n"
+
+    weather = loc.get("current_weather", "clear") if loc else "clear"
+    from services.weather_system import WEATHER_STATES
+    w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
+    text += f"\n{w_info['icon']} <i>{w_info['name']}</i>\n"
 
     if creatures:
         text += "\n👁 <b>Здесь есть:</b>\n"
@@ -266,15 +315,13 @@ async def cb_look(callback: CallbackQuery):
             name = g.get("name") or g["item_id"]
             text += f"  • {name} x{g['quantity']}\n"
 
-    connections = json.loads(loc["connections"]) if isinstance(loc["connections"], str) else loc["connections"]
+    connections = loc.get("connections", []) if loc else []
     if connections:
         text += "\n🚪 <b>Выходы:</b>\n"
         for loc_id in connections:
-            target = await ge.get_location(loc_id)
+            target = await services.movement.get_location(loc_id)
             if target:
                 text += f"  • {target['name']}\n"
-
-    await ge._log_action(callback.from_user.id, "look", location=user["current_location"])
 
     buttons = []
     for loc_id in connections:
@@ -300,8 +347,8 @@ async def cb_look(callback: CallbackQuery):
 
 @router.callback_query(F.data == "creature_menu")
 async def cb_creature_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    creatures = await ge.get_creatures_at_location(user["current_location"])
+    user = await services.player.get_or_create(callback.from_user.id)
+    creatures = await services.movement.get_creatures_at(user["current_location"])
 
     if not creatures:
         await callback.message.edit_text("Здесь никого нет.", reply_markup=back_menu_kb())
@@ -320,7 +367,9 @@ async def cb_creature_menu(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("creature_action:"))
 async def cb_creature_action(callback: CallbackQuery):
     creature_id = callback.data.split(":")[1]
-    creature = await ge.get_creature(creature_id)
+    user = await services.player.get_or_create(callback.from_user.id)
+    creatures = await services.movement.get_creatures_at(user["current_location"])
+    creature = next((c for c in creatures if c["creature_id"] == creature_id), None)
 
     if not creature or not creature["is_alive"]:
         await callback.message.edit_text("Этого существа здесь нет.", reply_markup=back_menu_kb())
@@ -353,7 +402,7 @@ async def cb_creature_action(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("talk:"))
 async def cb_talk(callback: CallbackQuery):
     creature_id = callback.data.split(":")[1]
-    result = await ge.talk_to_creature(callback.from_user.id, creature_id)
+    result = await services.movement.talk_to_creature(callback.from_user.id, creature_id)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="◀️ Назад", callback_data="creature_menu")],
@@ -370,8 +419,8 @@ async def cb_talk(callback: CallbackQuery):
 
 @router.callback_query(F.data == "ground_menu")
 async def cb_ground_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    ground = await ge.get_ground_items(user["current_location"])
+    user = await services.player.get_or_create(callback.from_user.id)
+    ground = await services.movement.get_ground_items(user["current_location"])
 
     if not ground:
         await callback.message.edit_text("На земле ничего нет.", reply_markup=back_menu_kb())
@@ -396,18 +445,18 @@ async def cb_ground_menu(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("pickup:"))
 async def cb_pickup(callback: CallbackQuery):
     item_id = callback.data.split(":")[1]
-    user = await ge.get_or_create_user(callback.from_user.id)
-    result = await ge.pick_up_item(callback.from_user.id, user["current_location"], item_id)
+    user = await services.player.get_or_create(callback.from_user.id)
+    result = await services.movement.pick_up_item(callback.from_user.id, user["current_location"], item_id)
 
     if result["success"]:
-        user_quests = await ge.get_user_quests(callback.from_user.id)
+        user_quests = await services.quest.get_user_quests(callback.from_user.id)
         for uq in user_quests:
             if uq["status"] != "active":
                 continue
-            objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
+            objectives = uq.get("objectives", [])
             for obj in objectives:
                 if obj.get("type") == "collect" and obj.get("item") == item_id:
-                    await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
+                    await services.quest.update_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
     await callback.message.edit_text(result["message"], reply_markup=post_action_kb())
     await callback.answer()
@@ -415,8 +464,8 @@ async def cb_pickup(callback: CallbackQuery):
 
 @router.callback_query(F.data == "pickup_all")
 async def cb_pickup_all(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    ground = await ge.get_ground_items(user["current_location"])
+    user = await services.player.get_or_create(callback.from_user.id)
+    ground = await services.movement.get_ground_items(user["current_location"])
 
     if not ground:
         await callback.message.edit_text("На земле ничего нет.", reply_markup=back_menu_kb())
@@ -425,19 +474,19 @@ async def cb_pickup_all(callback: CallbackQuery):
 
     picked = []
     for g in ground:
-        result = await ge.pick_up_item(callback.from_user.id, user["current_location"], g["item_id"])
+        result = await services.movement.pick_up_item(callback.from_user.id, user["current_location"], g["item_id"])
         if result["success"]:
             name = g.get("name") or g["item_id"]
             picked.append(f"{name} x{g['quantity']}")
 
-            user_quests = await ge.get_user_quests(callback.from_user.id)
+            user_quests = await services.quest.get_user_quests(callback.from_user.id)
             for uq in user_quests:
                 if uq["status"] != "active":
                     continue
-                objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
+                objectives = uq.get("objectives", [])
                 for obj in objectives:
                     if obj.get("type") == "collect" and obj.get("item") == g["item_id"]:
-                        await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
+                        await services.quest.update_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
     text = "🤲 <b>Подобрано:</b>\n\n" + "\n".join(f"• {p}" for p in picked)
     await callback.message.edit_text(text, reply_markup=post_action_kb())
@@ -450,13 +499,14 @@ async def cb_pickup_all(callback: CallbackQuery):
 
 @router.callback_query(F.data == "locations")
 async def cb_locations(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    loc = await ge.get_location(user["current_location"])
-    connections = json.loads(loc["connections"]) if isinstance(loc["connections"], str) else loc["connections"]
+    user = await services.player.get_or_create(callback.from_user.id)
+    loc = await services.movement.get_location(user["current_location"])
+    loc_name = loc["name"] if loc else await services.movement.get_location_name(user["current_location"])
+    connections = loc.get("connections", []) if loc else []
 
-    text = f"🗺 <b>Выходы из «{loc['name']}»:</b>\n\n"
+    text = f"🗺 <b>Выходы из «{loc_name}»:</b>\n\n"
     for loc_id in connections:
-        target = await ge.get_location(loc_id)
+        target = await services.movement.get_location(loc_id)
         if target:
             icon = "✅" if target["discovered"] else "❓"
             text += f"{icon} {target['name']}\n"
@@ -468,7 +518,7 @@ async def cb_locations(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("move:"))
 async def cb_move(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
     if not user["is_alive"]:
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
@@ -476,7 +526,7 @@ async def cb_move(callback: CallbackQuery):
         await callback.answer()
         return
     target = callback.data.split(":")[1]
-    result = await ge.move_user(callback.from_user.id, target)
+    result = await services.movement.move(callback.from_user.id, target)
 
     if result["success"]:
         scene = LOC_SCENES.get(target, "")
@@ -486,28 +536,26 @@ async def cb_move(callback: CallbackQuery):
         text += f"🚶 <b>{result['name']}</b>\n\n{result['description']}"
         if result.get("first_discover"):
             text += "\n\n⚡ <b>Ты первый, кто открыл эту область!</b>"
-            await ge.discover_legend(
+            await services.quest.discover_legend(
                 f"loc_{target}", "location",
-                result["name"], result["description"],
+                result["name"], result.get("description", ""),
                 callback.from_user.id
             )
 
-        # Прогресс квестов
-        user_quests = await ge.get_user_quests(callback.from_user.id)
+        user_quests = await services.quest.get_user_quests(callback.from_user.id)
         for uq in user_quests:
             if uq["status"] != "active":
                 continue
-            objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
+            objectives = uq.get("objectives", [])
             for obj in objectives:
                 if obj.get("type") == "visit" and obj.get("location") == target:
-                    await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
+                    await services.quest.update_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
-        loc = await ge.get_location(target)
-        connections = json.loads(loc["connections"]) if isinstance(loc["connections"], str) else loc["connections"]
+        loc = await services.movement.get_location(target)
+        connections = loc.get("connections", []) if loc else []
 
-        # Проверяем существ и предметы
-        creatures = await ge.get_creatures_at_location(target)
-        ground = await ge.get_ground_items(target)
+        creatures = await services.movement.get_creatures_at(target)
+        ground = await services.movement.get_ground_items(target)
 
         buttons = []
         for loc_id in connections:
@@ -535,14 +583,14 @@ async def cb_move(callback: CallbackQuery):
 
 @router.callback_query(F.data == "fight_menu")
 async def cb_fight_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
     if not user["is_alive"]:
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
         ]))
         await callback.answer()
         return
-    creatures = await ge.get_creatures_at_location(user["current_location"])
+    creatures = await services.movement.get_creatures_at(user["current_location"])
 
     hostile = [c for c in creatures if c["disposition"] in ("hostile", "neutral") and c["is_alive"]]
 
@@ -566,14 +614,14 @@ async def cb_fight_menu(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("attack:"))
 async def cb_attack(callback: CallbackQuery):
     creature_id = callback.data.split(":")[1]
-    result = await ge.start_combat(callback.from_user.id, creature_id)
+    result = await services.combat.start(callback.from_user.id, creature_id)
 
     if not result["success"]:
         await callback.message.edit_text(result["message"], reply_markup=post_action_kb())
         await callback.answer()
         return
 
-    combat = await ge.resolve_combat(callback.from_user.id, creature_id)
+    combat = await services.combat.resolve(callback.from_user.id, creature_id)
 
     scene = CREATURE_SCENES.get(creature_id, "")
     text = ""
@@ -603,16 +651,15 @@ async def cb_attack(callback: CallbackQuery):
     else:
         text += "\n🤝 <b>НИЧЬЯ</b>\nОба отступили."
 
-    # Прогресс квестов
     if combat.get("outcome") == "victory":
-        user_quests = await ge.get_user_quests(callback.from_user.id)
+        user_quests = await services.quest.get_user_quests(callback.from_user.id)
         for uq in user_quests:
             if uq["status"] != "active":
                 continue
-            objectives = json.loads(uq["objectives"]) if isinstance(uq["objectives"], str) else uq["objectives"]
+            objectives = uq.get("objectives", [])
             for obj in objectives:
                 if obj.get("type") == "kill" and obj.get("creature") == creature_id:
-                    await ge.update_quest_progress(callback.from_user.id, uq["quest_id"], obj["id"])
+                    await services.quest.update_progress(callback.from_user.id, uq["quest_id"], obj["id"])
 
     if combat["outcome"] == "defeat":
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -631,7 +678,7 @@ async def cb_attack(callback: CallbackQuery):
 
 @router.callback_query(F.data == "heal")
 async def cb_heal(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
 
     if not user["is_alive"]:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -641,21 +688,75 @@ async def cb_heal(callback: CallbackQuery):
         await callback.answer()
         return
 
-    inv = await ge.get_inventory(callback.from_user.id)
+    inv = await services.inventory.get(callback.from_user.id)
 
     healing_items = [i for i in inv if i["item_id"] in ("healing_herb", "shadow_essence", "frozen_tear")]
 
     if healing_items:
         item = healing_items[0]
-        result = await ge.use_item(callback.from_user.id, item["item_id"])
+        result = await services.inventory.use_item(callback.from_user.id, item["item_id"])
         text = result["message"]
     else:
-        result = await ge.rest_heal(callback.from_user.id)
+        result = await services.player.rest_heal(callback.from_user.id)
         text = result["message"]
 
     kb = post_action_kb()
     await callback.message.edit_text(text, reply_markup=kb)
     await callback.answer()
+
+
+FOOD_HUNGER = {
+    "bread": 20, "fish": 25, "apple": 15, "cheese": 30,
+    "dried_meat": 35, "berry": 10,
+}
+
+
+@router.callback_query(F.data == "eat_food")
+async def cb_eat_food(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    user = await services.player.get_or_create(user_id)
+
+    if not user["is_alive"]:
+        await callback.answer("💀 Ты мёртв.", show_alert=True)
+        return
+
+    inventory = await services.inventory.get(user_id)
+    food_items = [i for i in inventory if i["item_id"] in FOOD_HUNGER]
+
+    if not food_items:
+        await callback.answer("Нет еды в инвентаре! Купи на рынке.", show_alert=True)
+        return
+
+    buttons = []
+    for item in food_items:
+        hunger_restore = FOOD_HUNGER[item["item_id"]]
+        qty = item.get("quantity", 1)
+        buttons.append([InlineKeyboardButton(
+            text=f"🍖 {item['name']} ×{qty} (+{hunger_restore} 🍖)",
+            callback_data=f"eat:{item['item_id']}"
+        )])
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="main_menu")])
+
+    text = "🍖 <b>Поесть</b>\n\nВыбери еду:"
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("eat:"))
+async def cb_eat(callback: CallbackQuery):
+    item_id = callback.data.split(":", 1)[1]
+    user_id = callback.from_user.id
+
+    if not await services.inventory.has(user_id, item_id):
+        await callback.answer("Предмет не найден!", show_alert=True)
+        return
+
+    hunger_restore = FOOD_HUNGER.get(item_id, 10)
+    await services.inventory.remove(user_id, item_id)
+    result = await services.player.feed(user_id, hunger_restore)
+
+    await callback.answer(result["message"], show_alert=True)
+    await cb_main_menu(callback)
 
 
 # ──────────────────────────────────────────────
@@ -664,7 +765,7 @@ async def cb_heal(callback: CallbackQuery):
 
 @router.callback_query(F.data == "inventory")
 async def cb_inventory(callback: CallbackQuery):
-    items = await ge.get_inventory(callback.from_user.id)
+    items = await services.inventory.get(callback.from_user.id)
 
     if not items:
         text = "🎒 <b>Инвентарь пуст</b>\n\nТы ничего не несёшь. Пока."
@@ -695,7 +796,7 @@ async def cb_inventory(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("use_item:"))
 async def cb_use_item(callback: CallbackQuery):
     item_id = callback.data.split(":", 1)[1]
-    result = await ge.use_item(callback.from_user.id, item_id)
+    result = await services.inventory.use_item(callback.from_user.id, item_id)
     kb = post_action_kb()
     await callback.message.edit_text(result["message"], reply_markup=kb)
     await callback.answer()
@@ -707,16 +808,21 @@ async def cb_use_item(callback: CallbackQuery):
 
 @router.callback_query(F.data == "status")
 async def cb_status(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    user_actions = await ge.get_user_actions(callback.from_user.id, limit=1000000)
-    total = len(user_actions)
-    action_count = await ge.count_actions()
+    user = await services.player.get_or_create(callback.from_user.id)
     days = user.get("days_in_mist", 0)
     xp_needed = user["level"] * 100
 
+    loc_name = await services.movement.get_location_name(user["current_location"])
+    loc = await services.movement.get_location(user["current_location"])
+    weather = loc.get("current_weather", "clear") if loc else "clear"
+    from services.weather_system import WEATHER_STATES
+    from services.time_system import TIME_PERIODS
+    w_info = WEATHER_STATES.get(weather, WEATHER_STATES["clear"])
+
     text = (
         f"👤 <b>{user['display_name']}</b>\n\n"
-        f"📍 Локация: {user['current_location']}\n"
+        f"📍 Локация: {loc_name}\n"
+        f"{w_info['icon']} Погода: {w_info['name']}\n"
         f"⏰ Дней в MIST: {days}\n\n"
         f"❤️ HP: {user['hp']}/{user['max_hp']}\n"
         f"🗡 Атака: {user['attack']}\n"
@@ -724,9 +830,7 @@ async def cb_status(callback: CallbackQuery):
         f"⭐ Уровень: {user['level']} (XP: {user['xp']}/{xp_needed})\n"
         f"🪙 Золото: {user['gold']}\n\n"
         f"🎒 Воспоминаний: {user['memories']}\n"
-        f"⚖️ Карма: {user['karma']}\n"
-        f"📝 Твоих действий: {total}\n"
-        f"🌍 Всего в мире: {action_count}"
+        f"⚖️ Карма: {user['karma']}"
     )
     await callback.message.edit_text(text, reply_markup=back_menu_kb())
     await callback.answer()
@@ -738,7 +842,7 @@ async def cb_status(callback: CallbackQuery):
 
 @router.callback_query(F.data == "legends")
 async def cb_legends(callback: CallbackQuery):
-    stats = await ge.get_legend_stats()
+    stats = await services.quest.get_legend_stats()
     text = (
         "🏆 <b>Энциклопедия MIST</b>\n\n"
         f"🐾 Существа: {stats['creatures_found']}\n"
@@ -787,7 +891,7 @@ async def cmd_trade(message: Message):
         else:
             items_offered.append({"item_id": part, "qty": 1})
 
-    result = await ge.create_trade(
+    result = await services.trade.create(
         message.from_user.id, target_id,
         items_offered, gold, [], 0
     )

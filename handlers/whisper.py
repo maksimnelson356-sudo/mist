@@ -1,7 +1,7 @@
 import random
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-import game_engine as ge
+from services.container import services
 
 router = Router()
 
@@ -30,7 +30,7 @@ WHISPERS = [
 
 
 async def _get_whisper_for_user(user_id: int) -> str:
-    user = await ge.get_or_create_user(user_id)
+    user = await services.player.get_or_create(user_id)
     days = user.get("days_in_mist", 0)
     karma = user.get("karma", 0)
 
@@ -56,8 +56,6 @@ def _whisper_kb():
 @router.callback_query(F.data == "whisper")
 async def cb_whisper(callback: CallbackQuery):
     whisper_text = await _get_whisper_for_user(callback.from_user.id)
-
-    await ge._log_action(callback.from_user.id, "whisper", {"text": whisper_text})
 
     text = (
         f"🌫 <i>{whisper_text}</i>\n\n"

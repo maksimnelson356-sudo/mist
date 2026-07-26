@@ -1,32 +1,9 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-import game_engine as ge
+from services.container import services
+from services.achievement_service import ACHIEVEMENT_DEFS, CATEGORY_ICONS, CATEGORY_NAMES
 
 router = Router()
-
-CATEGORY_ICONS = {
-    "combat": "⚔️",
-    "explore": "🗺️",
-    "quests": "📜",
-    "progress": "📈",
-    "wealth": "💰",
-    "craft": "🔨",
-    "pvp": "🛡️",
-    "social": "👥",
-    "general": "⭐",
-}
-
-CATEGORY_NAMES = {
-    "combat": "Бой",
-    "explore": "Исследование",
-    "quests": "Квесты",
-    "progress": "Прогресс",
-    "wealth": "Богатство",
-    "craft": "Крафт",
-    "pvp": "PvP",
-    "social": "Социальное",
-    "general": "Общее",
-}
 
 
 def _format_achievement(ach: dict, user_data: dict | None) -> str:
@@ -49,12 +26,12 @@ def _format_achievement(ach: dict, user_data: dict | None) -> str:
 @router.callback_query(F.data == "achievements")
 async def cb_achievements(callback: CallbackQuery):
     user_id = callback.from_user.id
-    newly_unlocked = await ge.check_achievements(user_id)
-    all_achs = await ge.get_user_achievements(user_id)
+    newly_unlocked = await services.achievement.check(user_id)
+    all_achs = await services.achievement.get_user_achievements(user_id)
 
     user_ach_map = {a["achievement_id"]: a for a in all_achs} if all_achs else {}
 
-    ach_defs = ge.ACHIEVEMENT_DEFS
+    ach_defs = ACHIEVEMENT_DEFS
     categories: dict[str, list[dict]] = {}
     for ach in ach_defs:
         cat = ach.get("category", "general")

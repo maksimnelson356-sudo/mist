@@ -1,15 +1,15 @@
 import json
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
-import game_engine as ge
+from services.container import services
 
 router = Router()
 
 
 @router.callback_query(F.data == "pvp_menu")
 async def cb_pvp_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
-    stats = await ge.get_pvp_stats(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
+    stats = await services.pvp.get_stats(callback.from_user.id)
 
     text = (
         f"⚔️ <b>PvP Арена</b>\n\n"
@@ -33,7 +33,7 @@ async def cb_pvp_menu(callback: CallbackQuery):
 
 @router.callback_query(F.data == "pvp_find")
 async def cb_pvp_find(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
 
     if not user["is_alive"]:
         await callback.message.edit_text(
@@ -56,7 +56,7 @@ async def cb_pvp_find(callback: CallbackQuery):
         await callback.answer()
         return
 
-    opponents = await ge.get_pvp_opponents(callback.from_user.id)
+    opponents = await services.pvp.get_opponents(callback.from_user.id)
 
     if not opponents:
         await callback.message.edit_text(
@@ -96,7 +96,7 @@ async def cb_pvp_attack(callback: CallbackQuery):
         await callback.answer("Нельзя сражаться с самим собой!", show_alert=True)
         return
 
-    result = await ge.pvp_battle(callback.from_user.id, target_id)
+    result = await services.pvp.battle(callback.from_user.id, target_id)
 
     if not result["success"]:
         await callback.message.edit_text(result["message"], reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -105,7 +105,7 @@ async def cb_pvp_attack(callback: CallbackQuery):
         await callback.answer()
         return
 
-    target = await ge.get_or_create_user(target_id)
+    target = await services.player.get_or_create(target_id)
     target_name = target.get("display_name") or target.get("username") or f"Путник_{target_id % 10000}"
 
     text = f"⚔️ <b>PvP: {target_name}</b>\n\n"
@@ -144,7 +144,7 @@ async def cb_pvp_attack(callback: CallbackQuery):
 
 @router.callback_query(F.data == "pvp_leaderboard")
 async def cb_pvp_leaderboard(callback: CallbackQuery):
-    leaders = await ge.get_pvp_leaderboard()
+    leaders = await services.pvp.get_leaderboard()
 
     if not leaders:
         text = "🏆 <b>Таблица лидеров</b>\n\nПока никто не сражался. Будь первым!"

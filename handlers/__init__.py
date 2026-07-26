@@ -1,1 +1,1 @@
-from . import game, whisper, combat, quests, shop, pvp, crafting, guild, trade, equipment, achievements, daily, commands
+from . import game, whisper, quests, shop, pvp, crafting, guild, trade, equipment, achievements, daily, commands, admin, npc, exploration, home, artifact, boss, war, profile, world_chronicle, class_handler, dialogue, faction, raid, event, market, leaderboard, guild_ext, npc_trade, npc_quests, catalog, balance, territory, lang

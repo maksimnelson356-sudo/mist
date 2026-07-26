@@ -4,7 +4,10 @@ from aiogram.types import CallbackQuery, Message, InlineKeyboardButton, InlineKe
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-import game_engine as ge
+from services.container import services
+from sqlalchemy import select, func
+from database.base import get_db
+from database.models.guild import GuildMemberModel
 
 router = Router()
 
@@ -13,9 +16,17 @@ class GuildCreate(StatesGroup):
     waiting_name = State()
 
 
+async def _count_guild_members(guild_id: str) -> int:
+    async for db in get_db():
+        stmt = select(func.count()).select_from(GuildMemberModel).where(GuildMemberModel.guild_id == guild_id)
+        result = await db.execute(stmt)
+        return result.scalar() or 0
+    return 0
+
+
 @router.callback_query(F.data == "guild_menu")
 async def cb_guild_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
     if not user["is_alive"]:
         await callback.message.edit_text("💀 Ты мёртв.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✨ Очнуться", callback_data="revive")]
@@ -23,7 +34,7 @@ async def cb_guild_menu(callback: CallbackQuery):
         await callback.answer()
         return
 
-    guild = await ge.get_user_guild(callback.from_user.id)
+    guild = await services.guild.get_user_guild(callback.from_user.id)
 
     if not guild:
         text = (
@@ -37,14 +48,7 @@ async def cb_guild_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
         ]
     else:
-        member_count = 0
-        db = await ge.get_db()
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM guild_members WHERE guild_id = ?", (guild["guild_id"],)
-        )
-        row = await cursor.fetchone()
-        if row:
-            member_count = row[0]
+        member_count = await _count_guild_members(guild["guild_id"])
 
         role_icon = {"leader": "👑", "officer": "⭐", "member": "👤"}.get(guild["role"], "👤")
         bonus_lines = []
@@ -75,6 +79,8 @@ async def cb_guild_menu(callback: CallbackQuery):
         buttons = [
             [InlineKeyboardButton(text="👥 Участники", callback_data="guild_members")],
             [InlineKeyboardButton(text="💰 Пожертвовать", callback_data="guild_donate_menu")],
+            [InlineKeyboardButton(text="📦 Склад и казна", callback_data="guild_ext_menu")],
+            [InlineKeyboardButton(text="🗺️ Территории", callback_data="territory_menu")],
             [InlineKeyboardButton(text="🚪 Покинуть", callback_data="guild_leave")],
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
         ]
@@ -104,7 +110,7 @@ async def handle_guild_name_input(message: Message, state: FSMContext):
         return
 
     await state.clear()
-    result = await ge.create_guild(message.from_user.id, text, description=f"Гильдия «{text}»")
+    result = await services.guild.create(message.from_user.id, text, description=f"Гильдия «{text}»")
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
@@ -114,7 +120,7 @@ async def handle_guild_name_input(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "guild_list")
 async def cb_guild_list(callback: CallbackQuery):
-    guilds = await ge.get_all_guilds()
+    guilds = await services.guild.get_all()
 
     if not guilds:
         text = "📋 <b>Гильдий пока нет.</b>\n\nБудь первым!"
@@ -139,7 +145,7 @@ async def cb_guild_list(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("guild_join:"))
 async def cb_guild_join(callback: CallbackQuery):
     guild_id = callback.data.split(":")[1]
-    result = await ge.join_guild(callback.from_user.id, guild_id)
+    result = await services.guild.join(callback.from_user.id, guild_id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
@@ -150,7 +156,7 @@ async def cb_guild_join(callback: CallbackQuery):
 
 @router.callback_query(F.data == "guild_members")
 async def cb_guild_members(callback: CallbackQuery):
-    guild = await ge.get_user_guild(callback.from_user.id)
+    guild = await services.guild.get_user_guild(callback.from_user.id)
     if not guild:
         await callback.message.edit_text("Ты не в гильдии.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")]
@@ -158,24 +164,30 @@ async def cb_guild_members(callback: CallbackQuery):
         await callback.answer()
         return
 
-    members = await ge.get_guild_members(guild["guild_id"])
+    members = await services.guild.get_members(guild["guild_id"])
+    can_manage = guild["role"] in ("leader", "officer")
 
     text = f"👥 <b>Участники «{guild['name']}»</b>\n\n"
+    buttons = []
     for m in members:
         role_icon = {"leader": "👑", "officer": "⭐", "member": "👤"}.get(m["role"], "👤")
         name = m.get("display_name") or f"Путник_{m['user_id'] % 10000}"
         text += f"{role_icon} <b>{name}</b> — Ур.{m.get('level', 1)} | 📊{m.get('pvp_rating', 1000)} | Вклад: {m['contribution']} 🪙\n"
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_menu")]
-    ])
-    await callback.message.edit_text(text, reply_markup=kb)
+        if can_manage and m["user_id"] != callback.from_user.id and m["role"] != "leader":
+            buttons.append([
+                InlineKeyboardButton(text=f"⬆️ {name}", callback_data=f"guild_promote:{m['user_id']}"),
+                InlineKeyboardButton(text=f"🚫 {name}", callback_data=f"guild_kick:{m['user_id']}"),
+            ])
+
+    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="guild_menu")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await callback.answer()
 
 
 @router.callback_query(F.data == "guild_donate_menu")
 async def cb_guild_donate_menu(callback: CallbackQuery):
-    user = await ge.get_or_create_user(callback.from_user.id)
+    user = await services.player.get_or_create(callback.from_user.id)
     text = f"💰 <b>Пожертвовать в казну</b>\n\n🪙 У тебя: {user['gold']}\n\nОтправь сумму в чат:"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_menu")]
@@ -186,7 +198,7 @@ async def cb_guild_donate_menu(callback: CallbackQuery):
 
 @router.callback_query(F.data == "guild_leave")
 async def cb_guild_leave(callback: CallbackQuery):
-    result = await ge.leave_guild(callback.from_user.id)
+    result = await services.guild.leave(callback.from_user.id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏰 Гильдии", callback_data="guild_menu")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
@@ -217,9 +229,43 @@ async def cmd_guild_donate(message: Message):
         await message.answer("Сумма должна быть числом.")
         return
 
-    result = await ge.guild_donate(message.from_user.id, amount)
+    result = await services.guild.donate(message.from_user.id, amount)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏰 Гильдия", callback_data="guild_menu")],
         [InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")],
     ])
     await message.answer(result["message"], reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("guild_kick:"))
+async def cb_guild_kick(callback: CallbackQuery):
+    target_id = int(callback.data.split(":")[1])
+    guild = await services.guild.get_user_guild(callback.from_user.id)
+    if not guild:
+        await callback.answer("Ты не в гильдии.", show_alert=True)
+        return
+
+    result = await services.guild.kick(guild["guild_id"], target_id, callback.from_user.id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 Участники", callback_data="guild_members")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_menu")],
+    ])
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("guild_promote:"))
+async def cb_guild_promote(callback: CallbackQuery):
+    target_id = int(callback.data.split(":")[1])
+    guild = await services.guild.get_user_guild(callback.from_user.id)
+    if not guild:
+        await callback.answer("Ты не в гильдии.", show_alert=True)
+        return
+
+    result = await services.guild.promote(guild["guild_id"], target_id, callback.from_user.id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 Участники", callback_data="guild_members")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="guild_menu")],
+    ])
+    await callback.message.edit_text(result["message"], reply_markup=kb)
+    await callback.answer()
