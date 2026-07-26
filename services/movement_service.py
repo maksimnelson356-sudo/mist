@@ -58,22 +58,33 @@ class MovementService:
                 return {"success": False, "message": "Ты не можешь попасть отсюда напрямую."}
 
             night_encounter = False
+            weather_mod = {}
             try:
                 from services.container import services as _svc
                 world_state = _svc.world_engine.get_state()
                 game_hour = world_state["game_hour"] if world_state else 8
                 is_night = game_hour >= 23 or game_hour <= 5
-                if is_night:
-                    import random
-                    if random.random() < 0.15:
-                        night_encounter = True
-            except Exception as e:
-                logger.warning(f"Night encounter check error: {e}", exc_info=True)
 
+                loc_weather = loc.current_weather or "clear"
+                from services.weather_system import WEATHER_EFFECTS
+                weather_mod = WEATHER_EFFECTS.get(loc_weather, WEATHER_EFFECTS["clear"])
+
+                encounter_roll = weather_mod.get("encounter_chance", 0.0)
+                if is_night:
+                    encounter_roll += 0.15
+
+                if random.random() < encounter_roll:
+                    night_encounter = True
+            except Exception as e:
+                logger.warning(f"Weather/night encounter check error: {e}", exc_info=True)
+
+            hunger_cost = 5 + weather_mod.get("movement_hunger_cost", 0)
+            current_hunger = user.get("hunger", 100)
+            new_hunger = max(0, current_hunger - hunger_cost)
             await db.execute(
                 update(UserModel)
                 .where(UserModel.user_id == user_id)
-                .values(current_location=target_location)
+                .values(current_location=target_location, hunger=new_hunger)
             )
             await db.commit()
 
@@ -111,6 +122,8 @@ class MovementService:
                 "description": loc.description,
                 "message": f"Ты прибыл в «{loc.name}».",
                 "night_encounter": night_encounter,
+                "weather": loc.current_weather or "clear",
+                "hunger_cost": hunger_cost,
             }
         return {"success": False, "message": "Ошибка базы данных."}
 

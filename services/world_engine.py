@@ -49,7 +49,7 @@ class WorldEngine:
 
     def __init__(self, chronicle, ecosystem=None, guild_territory=None, home_service=None,
                  npc_life=None, world_memory=None, seasonal_quest=None, world_boss=None,
-                 seasonal_event=None, daily_event=None, npc_scheduler=None):
+                 seasonal_event=None, daily_event=None, npc_scheduler=None, event_quest=None):
         self.chronicle = chronicle
         self._running = False
         self._state = None
@@ -63,6 +63,7 @@ class WorldEngine:
         self.seasonal_event = seasonal_event
         self.daily_event = daily_event
         self.npc_scheduler = npc_scheduler
+        self.event_quest = event_quest
 
     async def _load_state(self):
         async for db in get_db():
@@ -296,6 +297,14 @@ class WorldEngine:
                     logger.info(f"Событие мира: {ev_def['name']} в {target_loc['name']} ({region_id})")
                     events_count += 1
 
+                    if self.event_quest:
+                        try:
+                            await self.event_quest.generate_quests_for_event(
+                                event_key, region_id, current_day
+                            )
+                        except Exception as e:
+                            logger.warning(f"Event quest generation error: {e}")
+
             await db.commit()
         return events_count
 
@@ -386,6 +395,14 @@ class WorldEngine:
                             importance=Importance.COMMON,
                         )
                         logger.info(f"Цепная реакция: {chain_def['name']} после {rec['event_type']}")
+
+                        if self.event_quest:
+                            try:
+                                await self.event_quest.generate_chain_quest(
+                                    chain_key, rec["event_type"], rec["region_id"], current_day
+                                )
+                            except Exception as e:
+                                logger.warning(f"Chain quest generation error: {e}")
 
             await db.commit()
 

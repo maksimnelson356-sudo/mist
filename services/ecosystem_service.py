@@ -45,7 +45,30 @@ NPC_EVENT_REACTIONS = {
     "flood": {"state": "fleeing", "flee_to": "dark_forest"},
     "clan_war": {"state": "hiding", "flee_to": "crystal_cave"},
     "wolf_pack_migration": {"state": "hiding", "flee_to": "fishing_village"},
+    "drought": {"state": "struggling", "flee_to": None},
+    "famine": {"state": "starving", "flee_to": None},
+    "bandits": {"state": "scared", "flee_to": "temple_of_shadows"},
+    "bandits_on_road": {"state": "scared", "flee_to": "temple_of_shadows"},
+    "harvest_festival": {"state": "celebrating", "flee_to": None},
+    "lantern_festival": {"state": "celebrating", "flee_to": None},
+    "merchant_caravan": {"state": "trading", "flee_to": None},
+    "wandering_merchant": {"state": "trading", "flee_to": None},
+    "meteorite": {"state": "panicked", "flee_to": "crystal_cave"},
+    "fog_storm": {"state": "hiding", "flee_to": None},
+    "ship_in_harbour": {"state": "curious", "flee_to": None},
+    "ancient_altar_discovered": {"state": "curious", "flee_to": None},
+    "ruin_anomaly": {"state": "fleeing", "flee_to": "fishing_village"},
 }
+
+CREATURE_WEATHER_BEHAVIOR = {
+    "storm": {"aggro_bonus": 0.15, "spawn_bonus": 5, "preferred_roles": ["carnivore", "apex"]},
+    "fog": {"aggro_bonus": 0.10, "spawn_bonus": 3, "preferred_roles": ["carnivore"]},
+    "snow": {"aggro_bonus": 0.05, "spawn_bonus": 2, "preferred_roles": ["herbivore"]},
+    "rain": {"aggro_bonus": 0.0, "spawn_bonus": 0, "preferred_roles": []},
+    "clear": {"aggro_bonus": -0.05, "spawn_bonus": 0, "preferred_roles": []},
+}
+
+NIGHT_CREATURE_BONUS = {"carnivore": 0.10, "apex": 0.15}
 
 
 class EcosystemService:
@@ -53,7 +76,7 @@ class EcosystemService:
     def __init__(self, chronicle):
         self.chronicle = chronicle
 
-    async def tick_creature_population(self):
+    async def tick_creature_population(self, game_hour: int = 12):
         async for db in get_db():
             result = await db.execute(
                 text("SELECT id, creature_id, location, hp, max_hp, is_alive FROM creatures WHERE is_alive = 1")
@@ -80,24 +103,55 @@ class EcosystemService:
 
                 if counts["total"] < 2 and counts["total"] > 0:
                     missing = 3 - counts["total"]
-                    await self._spawn_creatures(db, loc, missing)
+                    weather = "clear"
+                    try:
+                        from sqlalchemy import text as t
+                        r = await db.execute(t("SELECT current_weather FROM locations WHERE id = :lid OR location_id = :lid LIMIT 1"), {"lid": loc})
+                        row = r.mappings().first()
+                        if row:
+                            weather = row.get("current_weather", "clear")
+                    except Exception:
+                        pass
+                    await self._spawn_creatures(db, loc, missing, weather, game_hour)
 
             await db.commit()
 
-    async def _spawn_creatures(self, db, location_id: str, count: int):
+    async def _spawn_creatures(self, db, location_id: str, count: int, weather: str = "clear", game_hour: int = 12):
         import random
-        candidates = [cid for cid, role in CREATURE_ROLES.items() if role in ("carnivore", "herbivore")]
+        weather_behavior = CREATURE_WEATHER_BEHAVIOR.get(weather, CREATURE_WEATHER_BEHAVIOR["clear"])
+        preferred = weather_behavior.get("preferred_roles", [])
+        is_night = game_hour >= 23 or game_hour <= 5
+
+        candidates = []
+        for cid, role in CREATURE_ROLES.items():
+            if role in ("carnivore", "herbivore"):
+                weight = 1
+                if role in preferred:
+                    weight = 3
+                if is_night and role in NIGHT_CREATURE_BONUS:
+                    weight += 2
+                candidates.extend([cid] * weight)
+
         for _ in range(min(count, 3)):
-            cid = random.choice(candidates)
+            cid = random.choice(candidates) if candidates else random.choice(list(CREATURE_ROLES.keys()))
             hp = random.randint(30, 60)
+            attack = random.randint(5, 12)
+            defense = random.randint(2, 6)
+            if weather == "storm":
+                attack += random.randint(1, 3)
+            elif weather == "fog":
+                defense += random.randint(1, 2)
+            elif is_night:
+                attack += random.randint(0, 2)
+
             db.add(CreatureModel(
                 creature_id=f"{cid}_{random.randint(1000, 9999)}",
                 name=f"Дикий {cid.split('_')[0]}",
                 location=location_id,
                 disposition="hostile",
                 hp=hp, max_hp=hp,
-                attack=random.randint(5, 12),
-                defense=random.randint(2, 6),
+                attack=attack,
+                defense=defense,
                 xp_reward=random.randint(10, 25),
             ))
 
@@ -146,7 +200,7 @@ class EcosystemService:
             await db.commit()
 
     async def tick(self, game_hour: int, season: str):
-        await self.tick_creature_population()
+        await self.tick_creature_population(game_hour)
 
         if 6 <= game_hour <= 8:
             await self.migrate_creatures(season)

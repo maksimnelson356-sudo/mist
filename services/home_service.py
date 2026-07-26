@@ -359,3 +359,179 @@ class HomeService:
             await db.commit()
             return {"success": True, "message": f"📦 Забрал {item_id} x{qty} из хранилища."}
         return {"success": False, "message": "Ошибка базы данных."}
+
+    REPAIR_COSTS = {
+        "wood": {"gold": 20, "condition_gain": 10},
+        "stone": {"gold": 30, "condition_gain": 15},
+        "iron": {"gold": 50, "condition_gain": 25},
+    }
+
+    async def repair_home(self, owner_id: int, material: str = "wood") -> dict:
+        home = await self.get_home(owner_id)
+        if not home:
+            return {"success": False, "message": "У тебя нет дома."}
+
+        if home["condition"] >= 100:
+            return {"success": False, "message": "Дом уже в идеальном состоянии."}
+
+        cost_def = self.REPAIR_COSTS.get(material)
+        if not cost_def:
+            return {"success": False, "message": f"Неизвестный материал: {material}. Доступные: wood, stone, iron."}
+
+        from services.container import services
+        user = await services.player.get(owner_id)
+        if not user:
+            return {"success": False, "message": "Пользователь не найден."}
+
+        if user["gold"] < cost_def["gold"]:
+            return {"success": False, "message": f"Недостаточно золота. Нужно: {cost_def['gold']} 🪙, есть: {user['gold']} 🪙"}
+
+        new_condition = min(100, home["condition"] + cost_def["condition_gain"])
+
+        async for db in get_db():
+            from sqlalchemy import update as sa_update
+            await db.execute(
+                sa_update(PlayerHomeModel)
+                .where(PlayerHomeModel.owner_id == owner_id)
+                .values(condition=new_condition)
+            )
+            await db.execute(
+                sa_update(UserModel)
+                .where(UserModel.user_id == owner_id)
+                .values(gold=user["gold"] - cost_def["gold"])
+            )
+            await db.commit()
+
+        material_names = {"wood": "дерево", "stone": "камень", "iron": "железо"}
+        await self.chronicle.publish(
+            EventType.LEGEND_DISCOVERED,
+            f"🔧 Дом отремонтирован ({material_names.get(material, material)}). Состояние: {new_condition}%",
+            player_id=owner_id,
+            importance=Importance.TRIVIAL,
+        )
+
+        return {
+            "success": True,
+            "message": f"🔧 Дом отремонтирован! +{cost_def['condition_gain']}% ({material_names.get(material, material)}). Состояние: {new_condition}%",
+            "condition": new_condition,
+            "gold_spent": cost_def["gold"],
+        }
+
+    async def build_defense(self, owner_id: int, defense_type: str) -> dict:
+        DEFENSE_BUILDINGS = {
+            "wall": {"name": "Стена", "defenses": 10, "gold": 100, "condition_gain": 0},
+            "dam": {"name": "Плотина", "defenses": 15, "gold": 150, "condition_gain": 5},
+            "firebreak": {"name": "Противопожарный разрыв", "defenses": 8, "gold": 80, "condition_gain": 0},
+        }
+
+        building = DEFENSE_BUILDINGS.get(defense_type)
+        if not building:
+            return {"success": False, "message": f"Неизвестный тип: {defense_type}. Доступные: {', '.join(DEFENSE_BUILDINGS.keys())}"}
+
+        home = await self.get_home(owner_id)
+        if not home:
+            return {"success": False, "message": "У тебя нет дома."}
+
+        from services.container import services
+        user = await services.player.get(owner_id)
+        if not user:
+            return {"success": False, "message": "Пользователь не найден."}
+
+        if user["gold"] < building["gold"]:
+            return {"success": False, "message": f"Недостаточно золота. Нужно: {building['gold']} 🪙, есть: {user['gold']} 🪙"}
+
+        new_defenses = home["defenses"] + building["defenses"]
+        new_condition = min(100, home["condition"] + building["condition_gain"])
+
+        async for db in get_db():
+            from sqlalchemy import update as sa_update
+            await db.execute(
+                sa_update(PlayerHomeModel)
+                .where(PlayerHomeModel.owner_id == owner_id)
+                .values(defenses=new_defenses, condition=new_condition)
+            )
+            await db.execute(
+                sa_update(UserModel)
+                .where(UserModel.user_id == owner_id)
+                .values(gold=user["gold"] - building["gold"])
+            )
+            await db.commit()
+
+        upgrades = home.get("upgrades", {})
+        upgrades[defense_type] = upgrades.get(defense_type, 0) + 1
+
+        async for db in get_db():
+            from sqlalchemy import update as sa_update
+            await db.execute(
+                sa_update(PlayerHomeModel)
+                .where(PlayerHomeModel.owner_id == owner_id)
+                .values(upgrades=upgrades)
+            )
+            await db.commit()
+
+        await self.chronicle.publish(
+            EventType.LEGEND_DISCOVERED,
+            f"🏗 Построено: {building['name']}! Защита: +{building['defenses']}",
+            player_id=owner_id,
+            importance=Importance.COMMON,
+        )
+
+        return {
+            "success": True,
+            "message": f"🏗 {building['name']} построена! Защита: +{building['defenses']}. Состояние: {new_condition}%",
+            "defenses": new_defenses,
+            "condition": new_condition,
+            "gold_spent": building["gold"],
+        }
+
+    async def repair_location(self, user_id: int, location_id: str, material: str = "wood") -> dict:
+        REPAIR_COSTS = {"wood": 50, "stone": 80, "iron": 120}
+        REPAIR_GAIN = {"wood": 10, "stone": 15, "iron": 25}
+
+        gold_cost = REPAIR_COSTS.get(material, 50)
+        condition_gain = REPAIR_GAIN.get(material, 10)
+
+        from services.container import services
+        user = await services.player.get(user_id)
+        if not user:
+            return {"success": False, "message": "Пользователь не найден."}
+
+        if user["gold"] < gold_cost:
+            return {"success": False, "message": f"Недостаточно золота. Нужно: {gold_cost} 🪙"}
+
+        from sqlalchemy import text, update as sa_update
+        async for db in get_db():
+            result = await db.execute(
+                text("SELECT id, name, danger_level, food_supply, population FROM locations WHERE id = :lid OR location_id = :lid"),
+                {"lid": location_id},
+            )
+            loc = result.mappings().first()
+            if not loc:
+                return {"success": False, "message": "Локация не найдена."}
+
+            new_danger = max(0, loc["danger_level"] - condition_gain)
+            await db.execute(
+                text("UPDATE locations SET danger_level = :d WHERE id = :id"),
+                {"d": new_danger, "id": loc["id"]},
+            )
+            await db.execute(
+                sa_update(UserModel)
+                .where(UserModel.user_id == user_id)
+                .values(gold=user["gold"] - gold_cost)
+            )
+            await db.commit()
+
+        material_names = {"wood": "дерево", "stone": "камень", "iron": "железо"}
+        await self.chronicle.publish(
+            EventType.LEGEND_DISCOVERED,
+            f"🏗 Локация «{loc['name']}» восстановлена ({material_names.get(material, material)}). Опасность: -{condition_gain}",
+            player_id=user_id,
+            importance=Importance.COMMON,
+        )
+
+        return {
+            "success": True,
+            "message": f"🏗 «{loc['name']}» восстановлена! Опасность: {new_danger}. Потрачено: {gold_cost} 🪙",
+            "danger_level": new_danger,
+            "gold_spent": gold_cost,
+        }

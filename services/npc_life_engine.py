@@ -54,6 +54,26 @@ class NPCLifeEngine:
             await self._process_lifecycle(game_day, season)
 
     async def _process_npc_goals(self, game_hour: int):
+        weather = "clear"
+        try:
+            from services.container import services as _svc
+            world_state = _svc.world_engine.get_state()
+            if world_state:
+                pass
+            from sqlalchemy import text
+            async for db_check in get_db():
+                r = await db_check.execute(text("SELECT current_weather FROM locations ORDER BY RANDOM() LIMIT 1"))
+                row = r.mappings().first()
+                if row:
+                    weather = row.get("current_weather", "clear")
+                break
+        except Exception:
+            pass
+
+        from services.weather_system import WEATHER_EFFECTS
+        weather_fx = WEATHER_EFFECTS.get(weather, {})
+        npc_shelter = weather_fx.get("npc_shelter", False)
+
         async for db in get_db():
             result = await db.execute(
                 select(NPCModel).where(NPCModel.is_alive == True)
@@ -68,7 +88,9 @@ class NPCLifeEngine:
                 if current_state == "sleeping":
                     continue
 
-                if game_hour >= 6 and game_hour <= 11:
+                if npc_shelter:
+                    new_state = "sheltering"
+                elif game_hour >= 6 and game_hour <= 11:
                     new_goal = random.choice(goals)
                     new_state = f"working:{new_goal}"
                 elif game_hour >= 12 and game_hour <= 17:

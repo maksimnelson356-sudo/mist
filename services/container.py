@@ -46,6 +46,7 @@ from services.guild_extension_service import GuildExtensionService
 from services.daily_event_service import DailyEventService
 from services.analytics_service import AnalyticsService
 from services.daily_reward_service import DailyRewardService
+from services.event_quest_service import EventQuestService
 
 
 class ServiceContainer:
@@ -97,6 +98,7 @@ class ServiceContainer:
         self.daily_event = DailyEventService(self.chronicle)
         self.analytics = AnalyticsService(self.chronicle)
         self.daily_reward = DailyRewardService(self.chronicle, self.player, self.inventory)
+        self.event_quest = EventQuestService(self.chronicle)
 
         self.npc_scheduler = NPCScheduler(self.npc)
 
@@ -112,6 +114,7 @@ class ServiceContainer:
             seasonal_event=self.seasonal_event,
             daily_event=self.daily_event,
             npc_scheduler=self.npc_scheduler,
+            event_quest=self.event_quest,
         )
 
         self.user = self.player
