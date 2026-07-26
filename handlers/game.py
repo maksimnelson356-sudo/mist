@@ -237,6 +237,8 @@ async def cb_main_menu(callback: CallbackQuery):
         await callback.answer()
         return
 
+    await callback.answer()
+
     catchup = await services.player.get_catchup_summary(callback.from_user.id)
 
     if catchup and catchup.get("hunger_loss", 0) > 0:
@@ -323,8 +325,10 @@ async def cb_main_menu(callback: CallbackQuery):
         f"🍖 Голод: {user.get('hunger', 100)}/{user.get('max_hunger', 100)}\n"
         f"🎒 Воспоминаний: {user['memories']} | ⚖️ Карма: {user['karma']}"
     )
-    await callback.message.edit_text(text, reply_markup=main_menu_kb())
-    await callback.answer()
+    try:
+        await callback.message.edit_text(text, reply_markup=main_menu_kb())
+    except Exception:
+        await callback.message.answer(text, reply_markup=main_menu_kb())
 
 
 # ──────────────────────────────────────────────
@@ -340,6 +344,8 @@ async def cb_look(callback: CallbackQuery):
         ]))
         await callback.answer()
         return
+
+    await callback.answer()
     loc = await services.movement.get_location(user["current_location"])
     creatures = await services.movement.get_creatures_at(user["current_location"])
     ground = await services.movement.get_ground_items(user["current_location"])
@@ -421,8 +427,10 @@ async def cb_look(callback: CallbackQuery):
     buttons.append([InlineKeyboardButton(text="◀️ Меню", callback_data="main_menu")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    await callback.message.edit_text(text, reply_markup=kb)
-    await callback.answer()
+    try:
+        await callback.message.edit_text(text, reply_markup=kb)
+    except Exception:
+        await callback.message.answer(text, reply_markup=kb)
 
 
 # ──────────────────────────────────────────────
